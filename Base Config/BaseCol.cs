@@ -12,7 +12,6 @@ using VelocityProto;
 
 namespace VelocityProto.Handles
 {
-    // Additional Comment
     // Base library column handle mapping.
     // Usage:  new MathOperation(BaseCol.ActivityType, MathOp.SETTO, Account.NegEarnBal)
     //         rs.GetData(BaseCol.Currency, CompareOp.EQ, Currency.USD)
