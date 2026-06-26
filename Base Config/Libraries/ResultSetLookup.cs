@@ -3,7 +3,12 @@ using System.Collections.Generic;
 
 namespace VelocityProto
 {
-    public partial class ResultSet
+    // BaseConfig library — DealScript Lookup / LookupUDF replacements.
+    // Standalone static class; methods are extension methods on ResultSet so
+    // call sites keep their fluent shape (`mySet.Lookup(...)`).  TAs use the
+    // engine's ResultSet surface from the outside rather than extending it
+    // via partial class.
+    public static class ResultSetLookup
     {
         // ════════════════════════════════════════════════════════════════════
         //  Lookup  —  in-memory C# translation of DealScript's keyed-lookup join
@@ -22,7 +27,8 @@ namespace VelocityProto
         //  shared TC keys and applies multi-column factors; Lookup uses one
         //  named key column and applies one operation to one named column.
         // ════════════════════════════════════════════════════════════════════
-        public void Lookup(
+        public static void Lookup(
+            this ResultSet self,
             IDecimalCol target,
             MathOp      op,
             IDecimalCol valueCol,
@@ -47,7 +53,7 @@ namespace VelocityProto
             var rightMap = new Dictionary<int, decimal>();
             rightSet.ForEachRow(r =>
             {
-                int sid = GetSidFromRow(r, keyInternal);
+                int sid = ResultSet.GetSidFromRow(r, keyInternal);
                 decimal v = ReadDecimalCol(r, valueInternal);
                 if (rightMap.TryGetValue(sid, out decimal existing))
                     rightMap[sid] = existing + v;
@@ -56,9 +62,9 @@ namespace VelocityProto
             });
 
             // Apply per left row.
-            ForEachRow(left =>
+            self.ForEachRow(left =>
             {
-                int sid = GetSidFromRow(left, keyInternal);
+                int sid = ResultSet.GetSidFromRow(left, keyInternal);
                 if (!rightMap.TryGetValue(sid, out decimal source)) return;  // no match → no change
                 decimal current = ReadDecimalCol(left, targetInternal);
                 WriteDecimalCol(left, targetInternal, ApplyMathOp(current, op, source));
@@ -72,7 +78,8 @@ namespace VelocityProto
         // joins on (ActualPeriod, Product, ISRC).  Each left row finds matching
         // right rows whose ALL key columns equal the left row's, then sums the
         // value column across matched right rows.
-        public void Lookup(
+        public static void Lookup(
+            this ResultSet self,
             IDecimalCol  target,
             MathOp       op,
             IDecimalCol  valueCol,
@@ -106,7 +113,7 @@ namespace VelocityProto
                 for (int i = 0; i < keyInternals.Length; i++)
                 {
                     if (i > 0) sb.Append('\x01');
-                    sb.Append(GetSidFromRow(row, keyInternals[i]));
+                    sb.Append(ResultSet.GetSidFromRow(row, keyInternals[i]));
                 }
                 return sb.ToString();
             }
@@ -122,7 +129,7 @@ namespace VelocityProto
                     rightMap[k] = v;
             });
 
-            ForEachRow(left =>
+            self.ForEachRow(left =>
             {
                 string k = MakeKey(left);
                 if (!rightMap.TryGetValue(k, out decimal source)) return;
@@ -154,7 +161,8 @@ namespace VelocityProto
         // text comparisons / merges aren't well-defined for string concatenation,
         // so the semantic is always SETTO (replace target with looked-up value).
         // Empty UDF results clear the target column.
-        public void LookupUDF(
+        public static void LookupUDF(
+            this ResultSet self,
             ITextCol     target,
             string       udfHandle,
             IListableCol keyCol)
@@ -172,9 +180,9 @@ namespace VelocityProto
             string targetInternal = Terminology.TranslateContextElement(target.InternalName);
             string keyInternal    = Terminology.TranslateContextElement(keyCol.InternalName);
 
-            ForEachRow(left =>
+            self.ForEachRow(left =>
             {
-                int sid = GetSidFromRow(left, keyInternal);
+                int sid = ResultSet.GetSidFromRow(left, keyInternal);
                 string raw = sid == 0 || sid == C.InvalidInt ? null : DS.GetUDFValue(udfHandle, sid);
                 WriteTextCol(left, targetInternal, raw);
             });
@@ -202,7 +210,8 @@ namespace VelocityProto
             }
         }
 
-        public void LookupUDF(
+        public static void LookupUDF(
+            this ResultSet self,
             IDecimalCol  target,
             MathOp       op,
             string       udfHandle,
@@ -221,9 +230,9 @@ namespace VelocityProto
             string targetInternal = Terminology.TranslateContextElement(target.InternalName);
             string keyInternal    = Terminology.TranslateContextElement(keyCol.InternalName);
 
-            ForEachRow(left =>
+            self.ForEachRow(left =>
             {
-                int sid = GetSidFromRow(left, keyInternal);
+                int sid = ResultSet.GetSidFromRow(left, keyInternal);
                 if (sid == 0 || sid == C.InvalidInt) return;
                 string raw = DS.GetUDFValue(udfHandle, sid);
                 if (string.IsNullOrEmpty(raw)) return;

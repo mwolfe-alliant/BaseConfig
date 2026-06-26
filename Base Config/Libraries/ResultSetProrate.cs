@@ -5,7 +5,14 @@ using System.Text;
 
 namespace VelocityProto
 {
-    public partial class ResultSet
+    // BaseConfig library — DealScript DSP replacement (p_ds_proration_12).
+    // Standalone static helpers; TAs use the engine's ResultSet surface from
+    // the outside rather than extending it via partial class.
+    //
+    // Call sites:
+    //   ResultSetProrate.Prorate12(is1, is2, ...)
+    //   ResultSetProrate.Prorate12(is1, is2, ..., out unmatched)
+    public static class ResultSetProrate
     {
         // ════════════════════════════════════════════════════════════════════
         //  Prorate12  —  in-memory C# translation of p_ds_proration_12
@@ -117,8 +124,8 @@ namespace VelocityProto
             });
 
             // ── Step 3: prorate each IS1 row against its IS2 group ───────
-            var output    = EmptySet();
-            var unmatched = EmptySet();
+            var output    = ResultSet.EmptySet();
+            var unmatched = ResultSet.EmptySet();
 
             is1.ForEachRow(is1Row =>
             {

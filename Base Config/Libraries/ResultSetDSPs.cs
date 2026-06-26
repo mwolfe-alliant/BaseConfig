@@ -5,7 +5,15 @@ using System.Text;
 
 namespace VelocityProto
 {
-    public partial class ResultSet
+    // BaseConfig library — DealScript DSP replacements.  Standalone static helpers
+    // that operate on ResultSet via parameters (TAs use the engine's ResultSet
+    // surface from the outside; they don't extend it via partial class).
+    //
+    // Call sites:
+    //   ResultSetDSPs.SetCalcErrorInRun(is1, is2)
+    //   ResultSetDSPs.DetailMerge(is1, is2)
+    //   ResultSetDSPs.GroupNumbering(is1, is2, sort)
+    public static class ResultSetDSPs
     {
         // ════════════════════════════════════════════════════════════════════
         //  SetCalcErrorInRun  —  in-memory C# translation of p_ds_set_calc_error_in_run
@@ -23,7 +31,7 @@ namespace VelocityProto
             LogMsg.Debug(DebugCategory.DealScriptMethodCalls, 2,
                 "Start: SetCalcErrorInRun, is1.rows={0}", is1?.Rows ?? 0);
 
-            if (is1 == null || is1.Rows == 0) return EmptySet();
+            if (is1 == null || is1.Rows == 0) return ResultSet.EmptySet();
 
             string calcName = Job.CurrentCalcContext?.CalcName ?? "(unknown)";
             string prefix   = "";
@@ -42,7 +50,7 @@ namespace VelocityProto
             });
 
             LogMsg.Error(header);   // throws CalcJobAbortException
-            return EmptySet();   // unreachable
+            return ResultSet.EmptySet();   // unreachable
         }
 
         // ════════════════════════════════════════════════════════════════════
@@ -66,7 +74,7 @@ namespace VelocityProto
             LogMsg.Debug(DebugCategory.DealScriptMethodCalls, 2,
                 "Start: DetailMerge, is1.rows={0}, is2.rows={1}", is1?.Rows ?? 0, is2?.Rows ?? 0);
 
-            if (is1 == null || is1.Rows == 0) return EmptySet();
+            if (is1 == null || is1.Rows == 0) return ResultSet.EmptySet();
             if (is2 == null || is2.Rows == 0) return is1.Copy();
 
             // Detect which TC columns have at least one non-default value in each set.
@@ -88,7 +96,7 @@ namespace VelocityProto
             });
 
             // For each IS1 row, find matching IS2 rows and build merged output.
-            var output = EmptySet();
+            var output = ResultSet.EmptySet();
             is1.ForEachRow(r1 =>
             {
                 string k = Dm_BuildKey(r1, joinCols);
@@ -139,11 +147,11 @@ namespace VelocityProto
             LogMsg.Debug(DebugCategory.DealScriptMethodCalls, 2,
                 "Start: GroupNumbering, is1.rows={0}", is1?.Rows ?? 0);
 
-            if (is1 == null || is1.Rows == 0) return EmptySet();
+            if (is1 == null || is1.Rows == 0) return ResultSet.EmptySet();
 
             // IS2 active columns define the group key.
             // Empty IS2 / ZeroSet → no active columns → one group per deal_sid.
-            var groupCols = Dm_DetectActive(is2 ?? EmptySet());
+            var groupCols = Dm_DetectActive(is2 ?? ResultSet.EmptySet());
 
             // Group IS1 rows by (deal_sid + group-key columns).
             var groups = new Dictionary<string, List<CalcResultRow>>();
@@ -156,7 +164,7 @@ namespace VelocityProto
             });
 
             // Number rows within each group (0-based), writing to Amount.
-            var output = EmptySet();
+            var output = ResultSet.EmptySet();
             foreach (var group in groups.Values)
             {
                 IList<CalcResultRow> ordered = sort != null
