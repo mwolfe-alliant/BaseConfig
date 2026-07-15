@@ -709,9 +709,11 @@ namespace VelocityProto
 
             // MGAdjToBeUsed: only the MG rows whose end-period (OtherPeriod) is in
             // the current calc interval -- i.e. it's time to settle their shortfall.
-            var currentInterval = DS.F_CURRENT_CALC_INTERVAL();
+            //var currentInterval = DS.F_CURRENT_CALC_INTERVAL();
+            //var mgAdjToBeUsed = mgAdjItdOutput.GetData(
+            //    CustCol.OtherPeriod, ListOp.INLIST, (EntityList)currentInterval, "SubGuar.MGAdjToBeUsed");
             var mgAdjToBeUsed = mgAdjItdOutput.GetData(
-                CustCol.OtherPeriod, ListOp.INLIST, (EntityList)currentInterval, "SubGuar.MGAdjToBeUsed");
+                  CustCol.OtherPeriod, CompareOp.EQ, Job.CurrentCalcPeriod, "SubGuar.MGAdjToBeUsed");
 
             var L_RecGroup    = mgAdjToBeUsed.GetList(CustCol.RecoupmentGroup);
             int N_RecGroups   = L_RecGroup.Count();
@@ -1101,7 +1103,11 @@ namespace VelocityProto
 
             // Stamp Comment ← ActivityTypeUDF.GLAccount, Division ← ContractUDF.Division.
             final.DoMath(EngineCol.Comment, MathOp.SETTO, ActivityTypeUDF.GLAccount);
-            final.DoMath(CustCol.Division,  MathOp.SETTO, ContractUDF.Division);
+
+            if (!string.IsNullOrEmpty(Contract.GetUDFString(ContractUDF.Division)))
+            {
+                final.DoMath(CustCol.Division, MathOp.SETTO, ContractUDF.Division);
+            }
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubGLEntries");
             return final;
@@ -1875,8 +1881,11 @@ namespace VelocityProto
             var dspGetDealRevAlloc = ResultSet.ZeroSet();
             dspGetDealRevAlloc.DoMath(EngineCol.Comment, MathOp.SETTO, "Revenue Allocation");
             dspGetDealRevAlloc.DoMath(EngineCol.Rate1,   MathOp.SETTO, "7");   // admin class filter
-            var dealsToRetrieve = DS.ExecuteDSP("p_ds_get_deal_list", dspGetDealRevAlloc);
+            //var dealsToRetrieve = DS.ExecuteDSP("p_ds_get_deal_list", dspGetDealRevAlloc);
+            var dealsToRetrieveWithModel = DS.ExecuteDSP("p_ds_get_deal_list", dspGetDealRevAlloc);
             dspGetDealRevAlloc.Release();
+            var dealsToRetrieve = dealsToRetrieveWithModel.GetData(EngineCol.Comment, CompareOp.NE, "Revenue Allocation Contract Model");
+            dealsToRetrieveWithModel.Release();
 
             // DSPRunStatus = p_ds_get_deal_run_status using calc-period request + deal list.
             var dspGetStatusInput = ResultSet.ZeroSet();
@@ -1934,8 +1943,9 @@ namespace VelocityProto
             var dspItdTransType = ResultSet.ZeroSet();
             dspItdTransType.SetValue(CustCol.TransType, TransType.ITD);
 
-            var allocationResult = DS.ExecuteDSP("p_ds_get_calc_results",
-                dspGetResultsInput, dealsToRetrieve, dspItdTransType);
+            //var allocationResult = DS.ExecuteDSP("p_ds_get_calc_results",
+            //    dspGetResultsInput, dealsToRetrieve, dspItdTransType);
+            var allocationResult = ResultSet.EmptySet();
             dspGetResultsInput.Release();
             dspItdTransType.Release();
             dealsToRetrieve.Release();
@@ -2844,7 +2854,8 @@ namespace VelocityProto
                 new Criteria(CustCol.ActualPeriod, ListOp.INLIST,   (EntityList)window)
             }, "SubRes.RoyaltiesWithinWindowPeriods");
             // Stash ActualPeriod in TransType for later restore (DealScript line 46).
-            royaltiesWithinWindowPeriods.DoMath(CustCol.TransType, MathOp.SETTO, CustCol.ActualPeriod);
+            //royaltiesWithinWindowPeriods.DoMath(CustCol.TransType, MathOp.SETTO, CustCol.ActualPeriod);
+            royaltiesWithinWindowPeriods.DoMath(EngineCol.Period5, MathOp.SETTO, CustCol.ActualPeriod);
 
             // ─── Phase D: CurrentStmtInterval (period-to-period-type-period) ─
             var currentStmtInterval = DS.ExecuteDSP("p_ds_period_to_period_type_period",
@@ -2883,11 +2894,14 @@ namespace VelocityProto
             stmtIntervalPeriodType.Release();
 
             // ─── Phase F: Restore ActualPeriod from TransType scratch ────────
-            liquidationPeriod.DoMath(CustCol.ActualPeriod, MathOp.SETTO, CustCol.TransType);
+            //liquidationPeriod.DoMath(CustCol.ActualPeriod, MathOp.SETTO, CustCol.TransType);
+            liquidationPeriod.DoMath(CustCol.ActualPeriod, MathOp.SETTO, EngineCol.Period5);
+            liquidationPeriod.SetValue(EngineCol.Period5, Period.Unspecified);
 
             // ─── Phase G: Reserve rate -> ReservesTakenWithinWindow ──────────
             var liqPeriod = liquidationPeriod;
-            liqPeriod.SetValue(CustCol.TransType, TransType.ITD);
+            // Not needed as we are not stashing in TransType anymore
+            //liqPeriod.SetValue(CustCol.TransType, TransType.ITD);
 
             var royWithReserveRate = liqPeriod;
             royWithReserveRate.DoMath(EngineCol.Rate2, MathOp.SETTO, ContractUDF.ReserveRate);
@@ -3460,16 +3474,19 @@ namespace VelocityProto
             deductionWithCaps.Release();
 
             // DeductionsNoCap: when capping is NOT needed at all, the entire positive set passes through.
-            ResultSet deductionsNoCap;
+            //ResultSet deductionsNoCap;
             if (N_NoCapNeeded != 0)
             {
-                deductionsNoCap = positiveDeductionsAndReturns.Copy();
+                ResultSet deductionsNoCap = positiveDeductionsAndReturns.Copy();
+                deductionsNoCap.DoMath(BaseCol.Amount, MathOp.TIMES, "-1");
                 deductionsNoCap.DoMath(BaseCol.Amount2, MathOp.SETTO, BaseCol.Amount);
+                deductionsNoCap.SetValue(CustCol.OtherPeriod, Period.Unspecified);
+                return (ResultSet.EmptySet(), deductionsNoCap, salesOnly);
             }
-            else
-            {
-                deductionsNoCap = ResultSet.EmptySet();
-            }
+            //else
+            //{
+            //    deductionsNoCap = ResultSet.EmptySet();
+            //}
 
             // DeductionsNeedsCap: rows with cap groups, capping required.
             ResultSet deductionsNeedsCap = N_NoCapNeeded == 0 ? notNullCaps : ResultSet.EmptySet();
@@ -3571,7 +3588,9 @@ namespace VelocityProto
             moveAmountToAmount2Deds.DoMath(BaseCol.Amount,  MathOp.SETTO, "0");
 
             var posDedOA = ResultSet.EmptySet();
-            posDedOA.CombineAndRelease(deductionsOA.Copy(), deductionsNoCap, deductionsNoCapWithZeroTier, moveAmountToAmount2Deds);
+            // Removing deductionsNoCap from final output as returned earlier
+            //posDedOA.CombineAndRelease(deductionsOA.Copy(), deductionsNoCap, deductionsNoCapWithZeroTier, moveAmountToAmount2Deds);
+            posDedOA.CombineAndRelease(deductionsOA.Copy(), deductionsNoCapWithZeroTier, moveAmountToAmount2Deds);
             posDedOA.SetEntity(CustCol.OtherPeriod, new AlliantEntity(0));
             posDedOA.DoMath(CustCol.Tier, MathOp.SETTO, "0");
             // DeductionsOutput = -1 * PosDedOA  (re-negate back to NEG sign for output).

@@ -18,7 +18,7 @@ namespace VelocityProto
     public static class CommonLib
     {
         // CalcContext fields (lazy-allocated).
-        private static CalcContext _ctxRemoveZeros;
+        // private static CalcContext _ctxRemoveZeros;
         private static CalcContext _ctxRoundAmountsTo2DecAndUnitsTo0Dec;
         private static CalcContext _ctxSummarizeToOtherPeriodTier;
         private static CalcContext _ctxSummarizeToRecoupmentGroup;

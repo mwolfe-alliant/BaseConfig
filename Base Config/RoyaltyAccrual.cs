@@ -67,9 +67,8 @@ namespace VelocityProto
             // F_FIRST_PERIOD_OF_PRIOR_INTERVAL is function 47; not exposed on DS yet —
             // approximate via F_PERIOD_TYPES_FROM(calcPeriod, -1, statementInterval).
             string statementInterval = Contract.GetUDFString(ContractUDF.StatementInterval);
-            PeriodItem calcPeriod = DS.F_CALC_PERIOD();
             PeriodItem priorStmtFirst = !string.IsNullOrEmpty(statementInterval)
-                ? DS.F_PERIOD_TYPES_FROM(calcPeriod, -1, statementInterval)
+                ? DS.F_PERIOD_TYPES_FROM(Job.CurrentCalcPeriod, -1, statementInterval)
                 : Job.CalcPeriodPrevious;
 
             var priorStmtItd = ResultSet.GetDataFromCalcResult(new FilterClause {

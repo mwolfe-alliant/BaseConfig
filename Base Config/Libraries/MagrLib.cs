@@ -486,7 +486,7 @@ namespace VelocityProto
 
             var statementInfoOutput = ResultSet.ZeroSet();
             statementInfoOutput.SetValue(CustCol.ActivityType, ActivityType.MAGR_Statement_Info);
-            statementInfoOutput.SetValue(CustCol.ActualPeriod, new AlliantEntity(statementStart.sid));
+            statementInfoOutput.SetValue(CustCol.ActualPeriod, statementStart);
             statementInfoOutput.SetValue(CustCol.TransType,    TransType.Current);
             statementInfoOutput.DoMath(BaseCol.Amount, MathOp.SETTO, "99");
 
@@ -772,8 +772,7 @@ namespace VelocityProto
             PeriodItem startWindowPi = startEntity != null
                 ? (PeriodItem)PeriodItem.Items.GetEntityBySid(startEntity.sid)
                 : DS.F_INCEPTION();
-            PeriodItem endOfTime = (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time);
-            var auditWindow = DS.F_PERIOD_INTERVAL(startWindowPi, endOfTime);
+            var auditWindow = DS.F_PERIOD_INTERVAL(startWindowPi, (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time));
 
             // ForHMVideoFlag: filter to Home Video Imported list, blank AltComment.
             var forHmVideoFlag = inputSet1.GetData(
@@ -998,7 +997,7 @@ namespace VelocityProto
 
             // Liquidate any reserves whose OtherPeriod == calc-period: negate, restamp, swap actual<->other.
             var liquidateCalcPeriod = reservesItdOutput.GetData(
-                CustCol.OtherPeriod, CompareOp.EQ, new AlliantEntity(DS.F_CALC_PERIOD().sid),
+                CustCol.OtherPeriod, CompareOp.EQ, Job.CurrentCalcPeriod,
                 "MagrSubR.LiquidateCalcPeriod");
             liquidateCalcPeriod.DoMath(BaseCol.Amount, MathOp.TIMES, "-1");
             liquidateCalcPeriod.SetValue(CustCol.ActivityType, ActivityType.MAGR_Reserve_Released);
@@ -1069,9 +1068,7 @@ namespace VelocityProto
             PeriodItem startWinPi = startWinEntity != null
                 ? (PeriodItem)PeriodItem.Items.GetEntityBySid(startWinEntity.sid)
                 : DS.F_INCEPTION();
-            PeriodItem calcPeriod = DS.F_CALC_PERIOD();
-            PeriodItem endOfTime  = (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time);
-            PeriodItem calcMinus1 = DS.F_PERIODS_FROM(calcPeriod, -1);
+            PeriodItem calcMinus1 = DS.F_PERIODS_FROM(Job.CurrentCalcPeriod, -1);
 
             int N_PeriodInterval = !string.IsNullOrEmpty(tierInterval)
                 ? DS.F_NUM_PERIOD_TYPES_BETWEEN(startWinPi, calcMinus1, tierInterval)
@@ -1083,7 +1080,7 @@ namespace VelocityProto
                 startPeriodPi = DS.F_INCEPTION();
             else
             {
-                var capStart = DS.F_PERIOD_TYPES_FROM(calcPeriod, N_GoBackPeriodInterval, tierInterval);
+                var capStart = DS.F_PERIOD_TYPES_FROM(Job.CurrentCalcPeriod, N_GoBackPeriodInterval, tierInterval);
                 startPeriodPi = DS.F_PERIODS_FROM(capStart, 1);
             }
 
@@ -1096,7 +1093,7 @@ namespace VelocityProto
             var summarizePriorRoyBasis = SummarizeForWindowTiering(priorRoyBasis);
             Job.CurrentCalcContext = _ctxSubHvTiering;
 
-            var withinWindow = DS.F_PERIOD_INTERVAL(startWinPi, endOfTime);
+            var withinWindow = DS.F_PERIOD_INTERVAL(startWinPi, (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time));
             var royBasisWithinWindow = royaltyBasisItd.GetData(
                 CustCol.ActualPeriod, ListOp.INLIST, (EntityList)withinWindow,
                 "MagrSubHvT.RoyBasisWithinWindow");
@@ -1500,8 +1497,7 @@ namespace VelocityProto
             PeriodItem startWindowPi = startEntity != null
                 ? (PeriodItem)PeriodItem.Items.GetEntityBySid(startEntity.sid)
                 : DS.F_INCEPTION();
-            PeriodItem endOfTime = (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time);
-            var auditWindow = DS.F_PERIOD_INTERVAL(startWindowPi, endOfTime);
+            var auditWindow = DS.F_PERIOD_INTERVAL(startWindowPi, (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time));
 
             // ─── 3rd Party Deductible MAGR retrieval ─────────────────────────
             string shareChoice = Contract.GetUDFString(ContractUDF.MAGR_3rdParty_MAGR_ShareChoice);
@@ -1535,7 +1531,7 @@ namespace VelocityProto
 
                 // Run-status sweep + error-in-run.
                 var dspGetStatusInput = ResultSet.ZeroSet();
-                dspGetStatusInput.SetValue(CustCol.OtherPeriod, new AlliantEntity(DS.F_CALC_PERIOD().sid));
+                dspGetStatusInput.SetValue(CustCol.OtherPeriod, Job.CurrentCalcPeriod);
                 var dspRunStatus = DS.ExecuteDSP("p_ds_get_deal_run_status", dspGetStatusInput, dspDealList);
                 dspGetStatusInput.Release();
 
@@ -1573,7 +1569,7 @@ namespace VelocityProto
                 // p_ds_get_calc_results: pull contributing-deals' Total Participant Share or
                 // Adjusted Gross Receipts ITD rows, depending on share choice.
                 var dspGetResultsInput = ResultSet.ZeroSet();
-                dspGetResultsInput.SetValue(CustCol.OtherPeriod, new AlliantEntity(DS.F_CALC_PERIOD().sid));
+                dspGetResultsInput.SetValue(CustCol.OtherPeriod, Job.CurrentCalcPeriod);
                 dspGetResultsInput.DoMath(EngineCol.Comment,    MathOp.SETTO, "Udkey2, Udkey3");
                 dspGetResultsInput.SetValue(CustCol.ActualPeriod, new AlliantEntity(0));
                 dspGetResultsInput.DoMath(EngineCol.AltComment, MathOp.SETTO, "Approved, Complete");
@@ -1873,13 +1869,9 @@ namespace VelocityProto
                             || expCapInterval == "NA"     || expCapInterval == "No Deduction Cap") ? 1 : 0;
             int N_InceptionLabel = (expCapInterval == "Inception to Date") ? 1 : 0;
 
-            PeriodItem calcPeriod = DS.F_CALC_PERIOD();
-            PeriodItem inception  = DS.F_INCEPTION();
-            PeriodItem endOfTime  = (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time);
-
             PeriodItem winPeriod = !string.IsNullOrEmpty(statementInterval)
-                ? DS.F_PERIOD_TYPES_FROM(calcPeriod, N_WindowPeriods, statementInterval)
-                : calcPeriod;
+                ? DS.F_PERIOD_TYPES_FROM(Job.CurrentCalcPeriod, N_WindowPeriods, statementInterval)
+                : Job.CurrentCalcPeriod;
 
             PeriodItem mayBeCap;
             if (N_NoneLabel == 1 || string.IsNullOrEmpty(expCapInterval))
@@ -1898,15 +1890,15 @@ namespace VelocityProto
                 winStart = DS.F_PERIODS_FROM(winBase, 1);
             }
             PeriodItem windowStart = (N_WindowPeriodsRaw == 0 || N_InceptionLabel == 1)
-                ? inception
+                ? DS.F_INCEPTION()
                 : winStart;
 
             var windowStartPeriodOutput = ResultSet.ZeroSet();
             windowStartPeriodOutput.SetValue(CustCol.ActivityType, ActivityType.MAGR_Window_Start_Period);
             windowStartPeriodOutput.SetValue(CustCol.TransType,    TransType.ITD);
-            windowStartPeriodOutput.SetValue(CustCol.ActualPeriod, new AlliantEntity(windowStart.sid));
+            windowStartPeriodOutput.SetValue(CustCol.ActualPeriod, windowStart);
 
-            var auditWindow = DS.F_PERIOD_INTERVAL(windowStart, endOfTime);
+            var auditWindow = DS.F_PERIOD_INTERVAL(windowStart, (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time));
 
             // Phase B: ImportedITD.
             var importedItd = Job.Import.GetData(new FilterClause {
@@ -2573,7 +2565,7 @@ namespace VelocityProto
             noHeldPaymentWithSourceCurrency.DoMath(EngineCol.Rate2, MathOp.SETTO, "0");
 
             var paymentWithRate = noHeldPaymentWithSourceCurrency;
-            paymentWithRate.SetValue(CustCol.ActualPeriod, new AlliantEntity(DS.F_CALC_PERIOD().sid));
+            paymentWithRate.SetValue(CustCol.ActualPeriod, Job.CurrentCalcPeriod);
             paymentWithRate.DoMath(EngineCol.Rate2, MathOp.SETTO, SourceCurrencyUDF.ExchangeRate);
 
             var invalidExchangeRate = paymentWithRate.GetData(EngineCol.Rate2, CompareOp.EQ, "0", "MagrSubPT.InvalidExchangeRate");
@@ -2797,9 +2789,7 @@ namespace VelocityProto
             PeriodItem startWinPi = startEntity != null
                 ? (PeriodItem)PeriodItem.Items.GetEntityBySid(startEntity.sid)
                 : DS.F_INCEPTION();
-            PeriodItem calcPeriod = DS.F_CALC_PERIOD();
-            PeriodItem endOfTime  = (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time);
-            PeriodItem calcMinus1 = DS.F_PERIODS_FROM(calcPeriod, -1);
+            PeriodItem calcMinus1 = DS.F_PERIODS_FROM(Job.CurrentCalcPeriod, -1);
 
             int N_PeriodInterval = !string.IsNullOrEmpty(tierInterval)
                 ? DS.F_NUM_PERIOD_TYPES_BETWEEN(startWinPi, calcMinus1, tierInterval)
@@ -2807,7 +2797,7 @@ namespace VelocityProto
             int N_GoBack = -1 * (N_PeriodInterval + 1);
             PeriodItem startPeriodPi = (N_GoBack == -1 || string.IsNullOrEmpty(tierInterval))
                 ? DS.F_INCEPTION()
-                : DS.F_PERIODS_FROM(DS.F_PERIOD_TYPES_FROM(calcPeriod, N_GoBack, tierInterval), 1);
+                : DS.F_PERIODS_FROM(DS.F_PERIOD_TYPES_FROM(Job.CurrentCalcPeriod, N_GoBack, tierInterval), 1);
 
             PeriodItem startWinMinus1 = DS.F_PERIODS_FROM(startWinPi, -1);
             var priorRange = DS.F_PERIOD_INTERVAL(startPeriodPi, startWinMinus1);
@@ -2819,7 +2809,7 @@ namespace VelocityProto
             var summarizePriorRoyBasis = SummarizeForWindowParticipationTiering(priorRoyBasis);
             Job.CurrentCalcContext = _ctxSubParticipationsTiering;
 
-            var withinWindow = DS.F_PERIOD_INTERVAL(startWinPi, endOfTime);
+            var withinWindow = DS.F_PERIOD_INTERVAL(startWinPi, (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time));
             var royBasisWithinWindow = inputSet1.GetData(new FilterClause {
                 new Criteria(CustCol.ActivityType, CompareOp.EQ, ActivityType.MAGR_Modified_Adjusted_Gross_Receipts),
                 new Criteria(CustCol.ActualPeriod, ListOp.INLIST, (EntityList)withinWindow)
@@ -2944,7 +2934,7 @@ namespace VelocityProto
 
             // Run-status sweep.
             var dspGetStatusInput = ResultSet.ZeroSet();
-            dspGetStatusInput.SetValue(CustCol.OtherPeriod, new AlliantEntity(DS.F_CALC_PERIOD().sid));
+            dspGetStatusInput.SetValue(CustCol.OtherPeriod, Job.CurrentCalcPeriod);
             var dspRunStatus = DS.ExecuteDSP("p_ds_get_deal_run_status", dspGetStatusInput, dspDealList);
             dspGetStatusInput.Release();
 
@@ -2981,7 +2971,7 @@ namespace VelocityProto
 
             // p_ds_get_calc_results.
             var dspGetResultsInput = ResultSet.ZeroSet();
-            dspGetResultsInput.SetValue(CustCol.OtherPeriod, new AlliantEntity(DS.F_CALC_PERIOD().sid));
+            dspGetResultsInput.SetValue(CustCol.OtherPeriod, Job.CurrentCalcPeriod);
             dspGetResultsInput.DoMath(EngineCol.Comment,    MathOp.SETTO, "Udkey2, Udkey3");
             dspGetResultsInput.SetValue(CustCol.ActualPeriod, new AlliantEntity(0));
             dspGetResultsInput.DoMath(EngineCol.AltComment, MathOp.SETTO, "Approved, Complete");
@@ -3052,202 +3042,6 @@ namespace VelocityProto
 
             summed.SetValue(CustCol.ActivityType, outputActivityType);
             return summed;
-        }
-
-        // Shared body for the Participations Statement / Accrual entry points.
-        // DealScript c:1686 (Accrual) is literally `Output = #<c:1685>#`, so both
-        // template groups run the same MAGR pipeline -- the only difference is the
-        // calc-context name stamped on log/perf rows.
-        private static readonly System.Collections.Generic.Dictionary<string, CalcContext> _participationsContexts
-            = new System.Collections.Generic.Dictionary<string, CalcContext>();
-
-        public static ResultSet RunParticipationsPipeline(string callerCalcName)
-        {
-            if (!_participationsContexts.TryGetValue(callerCalcName, out var ctx))
-            {
-                ctx = new CalcContext(callerCalcName);
-                _participationsContexts[callerCalcName] = ctx;
-            }
-            Job.CurrentCalcContext = ctx;
-            LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  " + callerCalcName);
-
-            // Phase 1: Pull import + adjustment + window data.
-            var (importedWindowItd, priorItd, priorWindowItd, adjItd, startWindowAp) =
-                MagrLib.SubGetImportAdjsPriorItd();
-            Job.CurrentCalcContext = ctx;
-
-            // Phase 2: HV Royalties (returns deductions+royalty-basis+gross-receipts and reserves).
-            var (dedRoyBasisGrWindowItd, reservesOutput) = MagrLib.SubHvRoyalties(
-                importedWindowItd.Copy(), priorWindowItd.Copy(), priorItd.Copy(), startWindowAp.Copy(), adjItd.Copy());
-            Job.CurrentCalcContext = ctx;
-
-            // Phase 3: Imputed (currently unused in BC1).
-            var imputedOutput = ResultSet.EmptySet();
-
-            // Phase 4: Off the top deductions.
-            var offTheTopsWindowItd = MagrLib.SubOffTheTopDeductions(importedWindowItd.Copy());
-            Job.CurrentCalcContext = ctx;
-
-            // Phase 5: Total Gross Receipts.
-            var passToTgr = ResultSet.EmptySet();
-            passToTgr.Combine(imputedOutput);
-            passToTgr.Combine(dedRoyBasisGrWindowItd);
-            passToTgr.Combine(offTheTopsWindowItd);
-            var totalGrossReceiptsWindowItd = MagrLib.SubTotalGrossReceipts(passToTgr);
-            Job.CurrentCalcContext = ctx;
-            passToTgr.Release();
-
-            // Phase 6: Gross Receipts Participation.
-            var grossReceiptsParticipationWindowItd = MagrLib.SubGrossReceiptsParticipation(totalGrossReceiptsWindowItd.Copy());
-            Job.CurrentCalcContext = ctx;
-
-            // Phase 7: Distribution Fee.
-            var distFeeWindowItd = MagrLib.SubDistributionFee(
-                totalGrossReceiptsWindowItd.Copy(), startWindowAp.Copy(), priorWindowItd.Copy());
-            Job.CurrentCalcContext = ctx;
-
-            // Phase 8: Calculated Expenses.
-            var calcExpensesWindowItd = MagrLib.SubCalculatedExpenses(totalGrossReceiptsWindowItd.Copy());
-            Job.CurrentCalcContext = ctx;
-
-            // Phase 9: Distribution Expenses (returns OverCap + per-row deductions).
-            var (amountOverCapWindowItd, distExpenseWindowItd) = MagrLib.SubDistributionExpenses(
-                importedWindowItd.Copy(), totalGrossReceiptsWindowItd.Copy(), startWindowAp.Copy(), priorWindowItd.Copy());
-            Job.CurrentCalcContext = ctx;
-
-            // Phase 10: Balance.
-            var passToBalanceWindowItd = ResultSet.EmptySet();
-            passToBalanceWindowItd.Combine(totalGrossReceiptsWindowItd);
-            passToBalanceWindowItd.Combine(distFeeWindowItd);
-            passToBalanceWindowItd.Combine(calcExpensesWindowItd);
-            passToBalanceWindowItd.Combine(distExpenseWindowItd);
-            var balanceWindowItd = MagrLib.SubCalculateBalance(passToBalanceWindowItd.Copy());
-            Job.CurrentCalcContext = ctx;
-
-            // Phase 11: Cost of Production.
-            var (copWindowItd, advAndInterestCopItd) = MagrLib.SubCostOfProduction(
-                importedWindowItd.Copy(), startWindowAp.Copy(), priorWindowItd.Copy(), priorItd.Copy(), adjItd.Copy());
-            Job.CurrentCalcContext = ctx;
-
-            // Phase 12: Interest (DealScript leaves this commented out -- keep mirrored).
-            var interestOutput = ResultSet.EmptySet();
-
-            // Phase 13: MAGR.
-            var magrItd = MagrLib.SubModifiedAdjustedGrossReceipts(
-                balanceWindowItd.Copy(),
-                copWindowItd.Copy(),
-                interestOutput.Copy(),
-                startWindowAp.Copy(),
-                priorWindowItd.Copy(),
-                advAndInterestCopItd.Copy());
-            Job.CurrentCalcContext = ctx;
-
-            // Phase 14: Participant Share.
-            var participantShareItd = MagrLib.SubParticipantShare(
-                magrItd.Copy(), startWindowAp.Copy(), priorWindowItd.Copy(), priorItd.Copy());
-            Job.CurrentCalcContext = ctx;
-
-            // Phase 15: Calculate Current.
-            var priorResultWindowItd = priorWindowItd.GetData(new FilterClause {
-                new Criteria(CustCol.ActivityType, ListOp.INLIST, ActivityType.Lists.MAGR_Window_ITD_Activity_Type_List),
-                new Criteria(CustCol.TransType,    CompareOp.EQ,  TransType.ITD)
-            }, "MagrMain.PriorResultWindowITD");
-
-            var itdUpToHere = ResultSet.EmptySet();
-            itdUpToHere.Combine(priorResultWindowItd);
-            itdUpToHere.Combine(importedWindowItd);
-            itdUpToHere.Combine(dedRoyBasisGrWindowItd);
-            itdUpToHere.Combine(offTheTopsWindowItd);
-            itdUpToHere.Combine(passToBalanceWindowItd);
-            itdUpToHere.Combine(grossReceiptsParticipationWindowItd);
-            itdUpToHere.Combine(amountOverCapWindowItd);
-            itdUpToHere.Combine(balanceWindowItd);
-            itdUpToHere.Combine(copWindowItd);
-            itdUpToHere.Combine(advAndInterestCopItd);
-            itdUpToHere.Combine(magrItd);
-            itdUpToHere.Combine(participantShareItd);
-            priorResultWindowItd.Release();
-
-            var priorItdToCalculateCurrent = priorItd.GetData(
-                CustCol.ActivityType, ListOp.INLIST, ActivityType.Lists.MAGR_To_Calculate_Current_Activity_Type_List,
-                "MagrMain.PriorITDToCalculateCurrent");
-            var currentTrxs = ResultSet.Subtract(itdUpToHere, priorItdToCalculateCurrent, "MagrMain.CurrentTrxs");
-            priorItdToCalculateCurrent.Release();
-            currentTrxs.SetValue(CustCol.TransType, TransType.Current);
-
-            string cutoverDescr = Contract.GetUDFString(ContractUDF.MAGR_AlliantCutoverPeriod);
-            PeriodItem cutoverPi = !string.IsNullOrEmpty(cutoverDescr)
-                ? (PeriodItem)PeriodItem.Items.GetEntityByDescr(cutoverDescr)
-                : DS.F_INCEPTION();
-            PeriodItem endOfTime = (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time);
-            var fromCutover = DS.F_PERIOD_INTERVAL(cutoverPi, endOfTime);
-            var currentOutput = currentTrxs.GetData(
-                CustCol.ActualPeriod, ListOp.INLIST, (EntityList)fromCutover,
-                "MagrMain.CurrentOutput");
-            currentTrxs.Release();
-
-            // Phase 16: Advances + Off the Bottoms.
-            var forRecoupment = currentOutput.GetData(new FilterClause {
-                new Criteria(CustCol.ActivityType, ListOp.INLIST, ActivityType.Lists.MAGR_Participant_Share_and_3rd_Party_Deductible_Activity_Type_List),
-                new Criteria(CustCol.TransType,    CompareOp.EQ,  TransType.Current)
-            }, "MagrMain.ForRecoupment");
-            var (advAndOffTheBottomsOutput, totalParticipantShareCurrentOutput) =
-                MagrLib.SubAdvancesAndOffTheBottoms(forRecoupment, priorItd.Copy(), adjItd.Copy());
-            Job.CurrentCalcContext = ctx;
-            forRecoupment.Release();
-
-            // Phase 17: Payment and Taxes.
-            var paymentAndTaxesOutput = MagrLib.SubPaymentAndTaxes(
-                totalParticipantShareCurrentOutput.Copy(), priorItd.Copy(), adjItd.Copy());
-            Job.CurrentCalcContext = ctx;
-
-            // Phase 18: Statement Display.
-            var stmtPrepOutput = MagrLib.SubStatementDisplay();
-            Job.CurrentCalcContext = ctx;
-
-            importedWindowItd.Release();
-            priorItd.Release();
-            priorWindowItd.Release();
-            adjItd.Release();
-            startWindowAp.Release();
-            advAndInterestCopItd.Release();
-            interestOutput.Release();
-
-            // Phase 19: Finals + RemoveZeros.
-            var finals = ResultSet.EmptySet();
-            finals.Combine(reservesOutput);
-            finals.Combine(itdUpToHere);
-            finals.Combine(currentOutput);
-            finals.Combine(advAndOffTheBottomsOutput);
-            finals.Combine(totalParticipantShareCurrentOutput);
-            finals.Combine(paymentAndTaxesOutput);
-            finals.Combine(stmtPrepOutput);
-            reservesOutput.Release();
-            itdUpToHere.Release();
-            currentOutput.Release();
-            advAndOffTheBottomsOutput.Release();
-            totalParticipantShareCurrentOutput.Release();
-            paymentAndTaxesOutput.Release();
-            stmtPrepOutput.Release();
-            passToBalanceWindowItd.Release();
-            dedRoyBasisGrWindowItd.Release();
-            offTheTopsWindowItd.Release();
-            totalGrossReceiptsWindowItd.Release();
-            grossReceiptsParticipationWindowItd.Release();
-            distFeeWindowItd.Release();
-            calcExpensesWindowItd.Release();
-            amountOverCapWindowItd.Release();
-            distExpenseWindowItd.Release();
-            balanceWindowItd.Release();
-            copWindowItd.Release();
-            magrItd.Release();
-            participantShareItd.Release();
-            imputedOutput.Release();
-
-            var output = CommonLib.RemoveZeros(finals);
-
-            LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  " + callerCalcName);
-            return output;
         }
 
     }

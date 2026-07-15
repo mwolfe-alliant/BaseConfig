@@ -52,15 +52,11 @@ namespace VelocityProto
             int N_WindowPeriodsRaw = Contract.GetUDFInt(ContractUDF.WindowPeriods);
             int N_WindowPeriods    = N_WindowPeriodsRaw * -1;
             string statementInterval = Contract.GetUDFString(ContractUDF.StatementInterval);
-            PeriodItem calcPeriod = DS.F_CALC_PERIOD();
-            PeriodItem inception  = DS.F_INCEPTION();
-            PeriodItem endOfTime  = (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time);
-
             PeriodItem windowStart = (N_WindowPeriodsRaw == 0 || string.IsNullOrEmpty(statementInterval))
-                ? inception
-                : DS.F_PERIOD_TYPES_FROM(calcPeriod, N_WindowPeriods, statementInterval);
+                ? DS.F_INCEPTION()
+                : DS.F_PERIOD_TYPES_FROM(Job.CurrentCalcPeriod, N_WindowPeriods, statementInterval);
 
-            var auditWindow = DS.F_PERIOD_INTERVAL(windowStart, endOfTime);
+            var auditWindow = DS.F_PERIOD_INTERVAL(windowStart, (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time));
 
             // ─── Phase C: Prior-window ITD passthrough ───────────────────────
             // GetData CalcResult for ActivityType != Unspecified_Allocation,
