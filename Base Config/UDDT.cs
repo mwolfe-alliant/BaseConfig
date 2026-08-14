@@ -1,8 +1,8 @@
 // AUTO-GENERATED -- do not edit by hand.
-// Re-run Generate Handles in Alliant UI to regenerate from the current database state.
+// Re-run Generate Handles in Velocity Studio to regenerate from the current database state.
 // Source:  c_datatype + c_datatype_enumerated_value  (16 types)
 
-namespace VelocityProto.Handles
+namespace Velocity.Handles
 {
     // User Defined DataType (UDDT) enumerated-value handles.
     // The engine writes the enumerated_sid as a string into the row's UDF column,

@@ -6,9 +6,9 @@
 // stamped with the Accrual calc-context name on log/perf rows.
 using System;
 using System.Reflection;
-using VelocityProto.Handles;
+using Velocity.Handles;
 
-namespace VelocityProto
+namespace Velocity
 {
     public class ParticipationsAccrual
     {

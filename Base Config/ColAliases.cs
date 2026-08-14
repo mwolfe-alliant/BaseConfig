@@ -1,10 +1,10 @@
 // AUTO-GENERATED -- do not edit by hand.
-// Re-run Generate Handles in Alliant UI to regenerate from the current database state.
+// Re-run Generate Handles in Velocity Studio to regenerate from the current database state.
 // Source: v_context_element
 
-using VelocityProto;
+using Velocity;
 
-namespace VelocityProto.Handles
+namespace Velocity.Handles
 {
     public static partial class CustCol
     {
@@ -67,45 +67,7 @@ namespace VelocityProto.Handles
         public static readonly DecimalCol Units2 = new DecimalCol("Units2");
 
         // -- Context UDKey column aliases --------------------------------------------
-        /// <summary>UDKey1Col alias (context UDKey slot 1).</summary>
-        public static readonly UDKey1Col Catalog = default;
-        /// <summary>UDKey10Col alias (context UDKey slot 10).</summary>
-        public static readonly UDKey10Col Format = default;
-        /// <summary>UDKey11Col alias (context UDKey slot 11).</summary>
-        public static readonly UDKey11Col Customer = default;
-        /// <summary>UDKey12Col alias (context UDKey slot 12).</summary>
-        public static readonly UDKey12Col Provider = default;
-        /// <summary>UDKey13Col alias (context UDKey slot 13).</summary>
-        public static readonly UDKey13Col PaymentMethodApprovalType = default;
         /// <summary>UDKey14Col alias (context UDKey slot 14).</summary>
         public static readonly UDKey14Col Tier = default;
-        /// <summary>UDKey15Col alias (context UDKey slot 15).</summary>
-        public static readonly UDKey15Col RecoupmentGroup = default;
-        /// <summary>UDKey16Col alias (context UDKey slot 16).</summary>
-        public static readonly UDKey16Col RoyaltyMethod = default;
-        /// <summary>UDKey17Col alias (context UDKey slot 17).</summary>
-        public static readonly UDKey17Col SourceCurrency = default;
-        /// <summary>UDKey18Col alias (context UDKey slot 18).</summary>
-        public static readonly UDKey18Col CalculationCurrency = default;
-        /// <summary>UDKey19Col alias (context UDKey slot 19).</summary>
-        public static readonly UDKey19Col Division = default;
-        /// <summary>UDKey2Col alias (context UDKey slot 2).</summary>
-        public static readonly UDKey2Col ActivityType = default;
-        /// <summary>UDKey20Col alias (context UDKey slot 20).</summary>
-        public static readonly UDKey20Col GLCode = default;
-        /// <summary>UDKey3Col alias (context UDKey slot 3).</summary>
-        public static readonly UDKey3Col TransType = default;
-        /// <summary>UDKey4Col alias (context UDKey slot 4).</summary>
-        public static readonly UDKey4Col Channel = default;
-        /// <summary>UDKey5Col alias (context UDKey slot 5).</summary>
-        public static readonly UDKey5Col Territory = default;
-        /// <summary>UDKey6Col alias (context UDKey slot 6).</summary>
-        public static readonly UDKey6Col Media = default;
-        /// <summary>UDKey7Col alias (context UDKey slot 7).</summary>
-        public static readonly UDKey7Col Language = default;
-        /// <summary>UDKey8Col alias (context UDKey slot 8).</summary>
-        public static readonly UDKey8Col Bundle = default;
-        /// <summary>UDKey9Col alias (context UDKey slot 9).</summary>
-        public static readonly UDKey9Col RightsType = default;
     }
 }

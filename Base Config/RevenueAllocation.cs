@@ -20,9 +20,9 @@
 // UnspecifiedAllocationITDOutput rows.
 using System;
 using System.Reflection;
-using VelocityProto.Handles;
+using Velocity.Handles;
 
-namespace VelocityProto
+namespace Velocity
 {
     public class RevenueAllocation
     {
@@ -52,11 +52,15 @@ namespace VelocityProto
             int N_WindowPeriodsRaw = Contract.GetUDFInt(ContractUDF.WindowPeriods);
             int N_WindowPeriods    = N_WindowPeriodsRaw * -1;
             string statementInterval = Contract.GetUDFString(ContractUDF.StatementInterval);
-            PeriodItem windowStart = (N_WindowPeriodsRaw == 0 || string.IsNullOrEmpty(statementInterval))
-                ? DS.F_INCEPTION()
-                : DS.F_PERIOD_TYPES_FROM(Job.CurrentCalcPeriod, N_WindowPeriods, statementInterval);
+            PeriodItem calcPeriod = DS.F_CALC_PERIOD();
+            PeriodItem inception  = DS.F_INCEPTION();
+            PeriodItem endOfTime  = (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time);
 
-            var auditWindow = DS.F_PERIOD_INTERVAL(windowStart, (PeriodItem)PeriodItem.Items.GetEntityByDescr(Period.End_of_Time));
+            PeriodItem windowStart = (N_WindowPeriodsRaw == 0 || string.IsNullOrEmpty(statementInterval))
+                ? inception
+                : DS.F_PERIOD_TYPES_FROM(calcPeriod, N_WindowPeriods, statementInterval);
+
+            var auditWindow = DS.F_PERIOD_INTERVAL(windowStart, endOfTime);
 
             // ─── Phase C: Prior-window ITD passthrough ───────────────────────
             // GetData CalcResult for ActivityType != Unspecified_Allocation,
@@ -80,20 +84,28 @@ namespace VelocityProto
 
             var importedTrx = importWindowPeriod;
             importedTrx.SetValue(CustCol.TransType, TransType.ITD);
-            importedTrx.DoMath(EngineCol.Rate1,    MathOp.SETTO, "0");
-            importedTrx.DoMath(BaseCol.Amount2,    MathOp.SETTO, "0");
-            importedTrx.DoMath(BaseCol.Units2,     MathOp.SETTO, "0");
+            var _ops1 = new MathList
+            {
+                new MathOperation(EngineCol.Rate1,    MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Amount2,    MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units2,     MathOp.SETTO, "0"),
+            };
+            importedTrx.DoMath(_ops1);
 
             // SummarizeImport via 1546 (RoyaltyLib.SummarizeToActualPeriodBundle); zero Amount/Units.
             var summarizeImport = RoyaltyLib.SummarizeToActualPeriodBundle(importedTrx.Copy());
             Job.CurrentCalcContext = _ctxMainRevenueAllocation;
-            summarizeImport.DoMath(BaseCol.Amount, MathOp.SETTO, "0");
-            summarizeImport.DoMath(BaseCol.Units,  MathOp.SETTO, "0");
+            var _ops2 = new MathList
+            {
+                new MathOperation(BaseCol.Amount, MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units,  MathOp.SETTO, "0"),
+            };
+            summarizeImport.DoMath(_ops2);
 
             // ─── Phase E: Bundle explosion via p_ds_detail_explosion_from_bom ─
             var explodeByCatalogPercentAndUnits = ResultSet.ZeroSet();
-            explodeByCatalogPercentAndUnits.DoMath(EngineCol.Comment,    MathOp.SETTO, "UDKey8");   // Bundle
-            explodeByCatalogPercentAndUnits.DoMath(EngineCol.AltComment, MathOp.SETTO, "UDKey1");   // Catalog
+            explodeByCatalogPercentAndUnits.SetTextValue(EngineCol.Comment,    "UDKey8");   // Bundle
+            explodeByCatalogPercentAndUnits.SetTextValue(EngineCol.AltComment, "UDKey1");   // Catalog
             explodeByCatalogPercentAndUnits.DoMath(EngineCol.Rate1,      MathOp.SETTO, "3");        // mode 3
             explodeByCatalogPercentAndUnits.DoMath(EngineCol.Rate2,      MathOp.SETTO, "1");        // unchanged-units flag
 
@@ -104,9 +116,14 @@ namespace VelocityProto
 
             // ─── Phase F: Invalid-method detection ───────────────────────────
             var invalidMethod = explodedBom.GetData(BaseCol.Units2, CompareOp.NE, "1", "RevAlloc.InvalidMethod");
-            invalidMethod.DoMath(EngineCol.Rate1,  MathOp.SETTO, "99");
-            invalidMethod.DoMath(BaseCol.Units2,   MathOp.SETTO, "0");
-            var invalidMerge = DS.ExecuteDSP("p_ds_detail_merge", importedTrx, invalidMethod);
+            var _ops3 = new MathList
+            {
+                new MathOperation(EngineCol.Rate1,  MathOp.SETTO, "99"),
+                new MathOperation(BaseCol.Units2,   MathOp.SETTO, "0"),
+            };
+            invalidMethod.DoMath(_ops3);
+            // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+            var invalidMerge = ResultSetDSPs.DetailMergeWithParity("RevAlloc.invalidMerge", importedTrx, invalidMethod);
             invalidMethod.Release();
             var invalidImportMethod = invalidMerge.GetData(EngineCol.Rate1, CompareOp.EQ, "99", "RevAlloc.InvalidImportMethod");
             invalidMerge.Release();
@@ -114,10 +131,11 @@ namespace VelocityProto
 
             // Move ActivityType ID into Comment2 via p_ds_udkey_to_text.
             var activityTypeIdToComment2 = ResultSet.ZeroSet();
-            activityTypeIdToComment2.DoMath(EngineCol.Comment, MathOp.SETTO, "UDkey2");
+            activityTypeIdToComment2.SetTextValue(EngineCol.Comment, "UDKey2");
             activityTypeIdToComment2.DoMath(EngineCol.Rate1,   MathOp.SETTO, "1");   // 1 = move to Comment2
             activityTypeIdToComment2.DoMath(EngineCol.Rate2,   MathOp.SETTO, "1");   // 1 = use ID
-            DS.ExecuteDSP("p_ds_udkey_to_text", invalidImportMethod, activityTypeIdToComment2).Release();
+            // Fix: SQL DSP silently no-op'd; C# wrapper mutates IS1 in-place as intended.
+            ResultSetDSPs.UDKeyToText(invalidImportMethod, activityTypeIdToComment2);
             activityTypeIdToComment2.Release();
 
             var unspecifiedAllocationItdOutput = invalidImportMethod;
@@ -137,18 +155,24 @@ namespace VelocityProto
                 savePercentMethod.DoMath(EngineCol.Rate1, MathOp.SETTO, "99");
 
                 // PercentMethod row: stash the percent in Rate3, zero Amount/Units/Units2.
-                percentMethod.DoMath(EngineCol.Rate1, MathOp.SETTO, "99");
-                percentMethod.DoMath(EngineCol.Rate3, MathOp.SETTO, BaseCol.Amount);
-                percentMethod.DoMath(BaseCol.Units,   MathOp.SETTO, "0");
-                percentMethod.DoMath(BaseCol.Amount,  MathOp.SETTO, "0");
-                percentMethod.DoMath(BaseCol.Units2,  MathOp.SETTO, "0");
+                var _ops4 = new MathList
+                {
+                    new MathOperation(EngineCol.Rate1, MathOp.SETTO, "99"),
+                    new MathOperation(EngineCol.Rate3, MathOp.SETTO, BaseCol.Amount),
+                    new MathOperation(BaseCol.Units,   MathOp.SETTO, "0"),
+                    new MathOperation(BaseCol.Amount,  MathOp.SETTO, "0"),
+                    new MathOperation(BaseCol.Units2,  MathOp.SETTO, "0"),
+                };
+                percentMethod.DoMath(_ops4);
 
-                var findImportForPercentProration = DS.ExecuteDSP("p_ds_detail_merge", importedTrx, savePercentMethod);
+                // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+                var findImportForPercentProration = ResultSetDSPs.DetailMergeWithParity("RevAlloc.findImportForPercentProration", importedTrx, savePercentMethod);
                 var toBeUsedForPercentProration = findImportForPercentProration.GetData(EngineCol.Rate1, CompareOp.EQ, "99", "RevAlloc.ToBeUsedForPercentProration");
                 findImportForPercentProration.Release();
                 toBeUsedForPercentProration.DoMath(EngineCol.Rate1, MathOp.SETTO, "0");
 
-                var validMergeWithPercent = DS.ExecuteDSP("p_ds_detail_merge", importedTrx, percentMethod);
+                // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+                var validMergeWithPercent = ResultSetDSPs.DetailMergeWithParity("RevAlloc.validMergeWithPercent", importedTrx, percentMethod);
                 var validBundlesPercent = validMergeWithPercent.GetData(EngineCol.Rate1, CompareOp.EQ, "99", "RevAlloc.ValidBundlesPercent");
                 validMergeWithPercent.Release();
                 validBundlesPercent.DoMath(EngineCol.Rate1, MathOp.SETTO, "0");
@@ -195,17 +219,26 @@ namespace VelocityProto
                 saveUnitsMethod.SetValue(CustCol.Catalog, new AlliantEntity(0));
                 saveUnitsMethod.DoMath(EngineCol.Rate1, MathOp.SETTO, "99");
 
-                unitMethod.DoMath(BaseCol.Units2,    MathOp.SETTO, "0");
-                unitMethod.DoMath(EngineCol.Rate2,   MathOp.SETTO, BaseCol.Units);
-                unitMethod.DoMath(BaseCol.Units,     MathOp.SETTO, "0");
-                unitMethod.DoMath(BaseCol.Amount,    MathOp.SETTO, "0");
-                unitMethod.DoMath(EngineCol.Rate1,   MathOp.SETTO, "99");
+                var _ops5 = new MathList
+                {
+                    new MathOperation(BaseCol.Units2,    MathOp.SETTO, "0"),
+                    new MathOperation(EngineCol.Rate2,   MathOp.SETTO, BaseCol.Units),
+                    new MathOperation(BaseCol.Units,     MathOp.SETTO, "0"),
+                    new MathOperation(BaseCol.Amount,    MathOp.SETTO, "0"),
+                    new MathOperation(EngineCol.Rate1,   MathOp.SETTO, "99"),
+                };
+                unitMethod.DoMath(_ops5);
 
-                var findImportForUnitsProration = DS.ExecuteDSP("p_ds_detail_merge", importedTrx, saveUnitsMethod);
+                // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+                var findImportForUnitsProration = ResultSetDSPs.DetailMergeWithParity("RevAlloc.findImportForUnitsProration", importedTrx, saveUnitsMethod);
                 var toBeUsedForUnitsProration = findImportForUnitsProration.GetData(EngineCol.Rate1, CompareOp.EQ, "99", "RevAlloc.ToBeUsedForUnitsProration");
                 findImportForUnitsProration.Release();
-                toBeUsedForUnitsProration.DoMath(EngineCol.Rate1, MathOp.SETTO, "0");
-                toBeUsedForUnitsProration.DoMath(BaseCol.Units,   MathOp.SETTO, "0");
+                var _ops6 = new MathList
+                {
+                    new MathOperation(EngineCol.Rate1, MathOp.SETTO, "0"),
+                    new MathOperation(BaseCol.Units,   MathOp.SETTO, "0"),
+                };
+                toBeUsedForUnitsProration.DoMath(_ops6);
 
                 // Total units per (ActualPeriod, Bundle) for ratio denominator.
                 var summarizeUnitMethod = RoyaltyLib.SummarizeToActualPeriodBundle(saveUnitsMethod.Copy());
@@ -220,7 +253,8 @@ namespace VelocityProto
                                   CustCol.ActualPeriod, CustCol.Bundle);
                 nonZeroTotalUnits.Release();
 
-                var validMergeWithUnits = DS.ExecuteDSP("p_ds_detail_merge", importedTrx, unitMethod);
+                // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+                var validMergeWithUnits = ResultSetDSPs.DetailMergeWithParity("RevAlloc.validMergeWithUnits", importedTrx, unitMethod);
                 var validBundlesUnits = validMergeWithUnits.GetData(EngineCol.Rate1, CompareOp.EQ, "99", "RevAlloc.ValidBundlesUnits");
                 validMergeWithUnits.Release();
                 validBundlesUnits.DoMath(EngineCol.Rate1, MathOp.SETTO, "0");

@@ -1,8 +1,8 @@
 // AUTO-GENERATED -- do not edit by hand.
-// Re-run Generate Handles in Alliant UI to regenerate from the current database state.
+// Re-run Generate Handles in Velocity Studio to regenerate from the current database state.
 // Source: v_context_element (CE alias), c_contact_udf (16 UDFs)
 
-namespace VelocityProto.Handles
+namespace Velocity.Handles
 {
     // StatementRecipient UDF string handles -- entity-prefixed ("StatementRecipient.<name>") for right-operand parser.
     public static class StatementRecipientUDF

@@ -1,5 +1,5 @@
 // AUTO-GENERATED -- do not edit by hand.
-// Re-run Generate Handles in Alliant UI to regenerate from the current database state.
+// Re-run Generate Handles in Velocity Studio to regenerate from the current database state.
 // Source:  c_entity_terminology_locale (UDKey slot -> base name mapping).
 //
 // Three-tier naming:
@@ -7,9 +7,9 @@
 //   BaseCol.ActivityType    - shared library name (this file)
 //   CustCol.Account         - customer-specific alias
 
-using VelocityProto;
+using Velocity;
 
-namespace VelocityProto.Handles
+namespace Velocity.Handles
 {
     public static class BaseCol
     {

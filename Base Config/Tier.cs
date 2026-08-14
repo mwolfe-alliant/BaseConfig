@@ -1,10 +1,10 @@
 // AUTO-GENERATED -- do not edit by hand.
-// Re-run Generate Handles in Alliant UI to regenerate from the current database state.
+// Re-run Generate Handles in Velocity Studio to regenerate from the current database state.
 // Source:  c_udkey_14 (context table; only the sid=0 Unspecified sentinel is emitted).
 
-using VelocityProto;
+using Velocity;
 
-namespace VelocityProto.Handles
+namespace Velocity.Handles
 {
     // Context UDKey14 sentinel handle.  Customer alias: Tier.
     // No transactional items are exposed -- only the universal Unspecified marker.

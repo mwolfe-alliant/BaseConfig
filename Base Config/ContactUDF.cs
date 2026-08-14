@@ -1,8 +1,8 @@
 // AUTO-GENERATED -- do not edit by hand.
-// Re-run Generate Handles in Alliant UI to regenerate from the current database state.
+// Re-run Generate Handles in Velocity Studio to regenerate from the current database state.
 // Source: c_context_element_tab_udf_pos  context_element_sid=22 (Contact)  (16 UDFs)
 
-namespace VelocityProto.Handles
+namespace Velocity.Handles
 {
     // Bare Contact UDF handles -- no entity prefix; for explicit-sid lookups.
     // Per-CE entity-prefixed forms live in <Alias>UDF.cs (ParticipantUDF, ContractedPartyUDF, ...).

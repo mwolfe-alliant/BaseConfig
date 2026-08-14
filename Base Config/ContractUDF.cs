@@ -1,8 +1,8 @@
 // AUTO-GENERATED -- do not edit by hand.
-// Re-run Generate Handles in Alliant UI to regenerate from the current database state.
+// Re-run Generate Handles in Velocity Studio to regenerate from the current database state.
 // Source: c_context_element_tab_udf_pos  context_element_sid=17 (Contract)  (116 UDFs)
 
-namespace VelocityProto.Handles
+namespace Velocity.Handles
 {
     // Contract UDF string handles -- runtime parser keys on "Contract.<name>" prefix.
     public static class ContractUDF

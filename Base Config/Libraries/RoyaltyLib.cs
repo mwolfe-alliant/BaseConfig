@@ -33,9 +33,9 @@
 //
 // CalcContext Reset() column lists are the COMPLEMENT of sum=Y in c_calc_context.
 using System;
-using VelocityProto.Handles;
+using Velocity.Handles;
 
-namespace VelocityProto
+namespace Velocity
 {
     public static class RoyaltyLib
     {
@@ -333,9 +333,13 @@ namespace VelocityProto
             // MethodType = Set Rate1=0, AltComment=ContractUDF.RoyaltyMethodType
             //              Set Amount2 = Amount  (stash original NetSales)
             var methodType = netSalesItd.Copy();
-            methodType.DoMath(EngineCol.Rate1,      MathOp.SETTO, "0");
-            methodType.DoMath(EngineCol.AltComment, MathOp.SETTO, ContractUDF.RoyaltyMethodType);
-            methodType.DoMath(BaseCol.Amount2,      MathOp.SETTO, BaseCol.Amount);
+            var _ops1 = new MathList
+            {
+                new MathOperation(EngineCol.Rate1,      MathOp.SETTO, "0"),
+                new MathOperation(EngineCol.AltComment, MathOp.SETTO, ContractUDF.RoyaltyMethodType),
+                new MathOperation(BaseCol.Amount2,      MathOp.SETTO, BaseCol.Amount),
+            };
+            methodType.DoMath(_ops1);
 
             // WithPercentOfPercent: stash PercentOfPercent UDF in Rate3.
             var withPercentOfPercent = methodType;
@@ -359,9 +363,13 @@ namespace VelocityProto
 
             // RoyaltyPercentOfSales = Amount * Rate1 → Rate2 → Amount.
             var royaltyPercentOfSales = netSalesPercentOfSales.Copy();
-            royaltyPercentOfSales.DoMath(EngineCol.Rate2, MathOp.SETTO, BaseCol.Amount);
-            royaltyPercentOfSales.DoMath(EngineCol.Rate2, MathOp.TIMES, EngineCol.Rate1);
-            royaltyPercentOfSales.DoMath(BaseCol.Amount,  MathOp.SETTO, EngineCol.Rate2);
+            var _ops2 = new MathList
+            {
+                new MathOperation(EngineCol.Rate2, MathOp.SETTO, BaseCol.Amount),
+                new MathOperation(EngineCol.Rate2, MathOp.TIMES, EngineCol.Rate1),
+                new MathOperation(BaseCol.Amount,  MathOp.SETTO, EngineCol.Rate2),
+            };
+            royaltyPercentOfSales.DoMath(_ops2);
 
             // Sub-branch 2: UnitRate.  Filter from withPercentOfSalesInvalid (rows still without a rate).
             var withUnitRate = withPercentOfSalesInvalid;
@@ -374,9 +382,13 @@ namespace VelocityProto
 
             // RoyaltyUnitRate = Units * Rate1 → Rate2 → Amount.
             var royaltyUnitRate = netSalesUnitRate.Copy();
-            royaltyUnitRate.DoMath(EngineCol.Rate2, MathOp.SETTO, BaseCol.Units);
-            royaltyUnitRate.DoMath(EngineCol.Rate2, MathOp.TIMES, EngineCol.Rate1);
-            royaltyUnitRate.DoMath(BaseCol.Amount,  MathOp.SETTO, EngineCol.Rate2);
+            var _ops3 = new MathList
+            {
+                new MathOperation(EngineCol.Rate2, MathOp.SETTO, BaseCol.Units),
+                new MathOperation(EngineCol.Rate2, MathOp.TIMES, EngineCol.Rate1),
+                new MathOperation(BaseCol.Amount,  MathOp.SETTO, EngineCol.Rate2),
+            };
+            royaltyUnitRate.DoMath(_ops3);
 
             // Sub-branch 3: PercentOfList.
             var withPercentOfList = withUnitRateInvalid;
@@ -391,10 +403,14 @@ namespace VelocityProto
 
             // NetSalesPercentOfListRev = Units * Price1 → Rate2; RoyaltyPctList = Rate2 * Rate1 → Rate2 → Amount.
             var royaltyPercentOfList = netSalesPercentOfList.Copy();
-            royaltyPercentOfList.DoMath(EngineCol.Rate2, MathOp.SETTO, BaseCol.Units);
-            royaltyPercentOfList.DoMath(EngineCol.Rate2, MathOp.TIMES, EngineCol.Price1);
-            royaltyPercentOfList.DoMath(EngineCol.Rate2, MathOp.TIMES, EngineCol.Rate1);
-            royaltyPercentOfList.DoMath(BaseCol.Amount,  MathOp.SETTO, EngineCol.Rate2);
+            var _ops4 = new MathList
+            {
+                new MathOperation(EngineCol.Rate2, MathOp.SETTO, BaseCol.Units),
+                new MathOperation(EngineCol.Rate2, MathOp.TIMES, EngineCol.Price1),
+                new MathOperation(EngineCol.Rate2, MathOp.TIMES, EngineCol.Rate1),
+                new MathOperation(BaseCol.Amount,  MathOp.SETTO, EngineCol.Rate2),
+            };
+            royaltyPercentOfList.DoMath(_ops4);
 
             // StandardRoyalty = round(Combine of three sub-branches).
             var standardRoyaltyCombined = ResultSet.EmptySet();
@@ -425,8 +441,12 @@ namespace VelocityProto
 
             // For maybeValidGreaterOfWithUnitRate: clear Rate1, then try PctOfSales.
             var forGrtOfPctSales = maybeValidGreaterOfWithUnitRate.Copy();
-            forGrtOfPctSales.DoMath(EngineCol.Rate1, MathOp.SETTO, "0");
-            forGrtOfPctSales.DoMath(EngineCol.Rate1, MathOp.SETTO, ContractUDF.RoyaltyRatePercentOfNetSales);
+            var _ops5 = new MathList
+            {
+                new MathOperation(EngineCol.Rate1, MathOp.SETTO, "0"),
+                new MathOperation(EngineCol.Rate1, MathOp.SETTO, ContractUDF.RoyaltyRatePercentOfNetSales),
+            };
+            forGrtOfPctSales.DoMath(_ops5);
             var validUnitRateWithInvalidPctSales = forGrtOfPctSales.GetData(EngineCol.Rate1, CompareOp.EQ, "0");
             var validGreaterOfWithPctSales       = forGrtOfPctSales.GetData(EngineCol.Rate1, CompareOp.NE, "0");
             forGrtOfPctSales.Release();
@@ -447,8 +467,12 @@ namespace VelocityProto
             greaterOfPctSalesRoyWithUnits.SetValue(CustCol.RoyaltyMethod, RoyaltyMethod.Percent_of_Net_Sales);
             var roundedGreaterOfPctSalesRoyWithUnits = CommonLib.RoundAmountsTo2DecAndUnitsTo0Dec(greaterOfPctSalesRoyWithUnits);
             // Preserve the rounded royalty in Rate2, then zero Amount.
-            roundedGreaterOfPctSalesRoyWithUnits.DoMath(EngineCol.Rate2,    MathOp.SETTO, BaseCol.Amount);
-            roundedGreaterOfPctSalesRoyWithUnits.DoMath(BaseCol.Amount,     MathOp.SETTO, "0");
+            var _ops6 = new MathList
+            {
+                new MathOperation(EngineCol.Rate2,    MathOp.SETTO, BaseCol.Amount),
+                new MathOperation(BaseCol.Amount,     MathOp.SETTO, "0"),
+            };
+            roundedGreaterOfPctSalesRoyWithUnits.DoMath(_ops6);
             // Split into positive (Rate2 ≥ 0 AND Units ≥ 0) and negative (both < 0) bands.
             var posPctSalesAmountUnits = roundedGreaterOfPctSalesRoyWithUnits.GetData(new FilterClause {
                 new Criteria(EngineCol.Rate2, CompareOp.GE, "0"),
@@ -464,15 +488,23 @@ namespace VelocityProto
             var saveValidGreaterOfWithUnitRate = validGreaterOfWithUnitRate.Copy();
             saveValidGreaterOfWithUnitRate.DoMath(BaseCol.Amount, MathOp.SETTO, "0");
             var greaterOfUnitRateRoy = validGreaterOfWithUnitRate;
-            greaterOfUnitRateRoy.DoMath(BaseCol.Amount, MathOp.SETTO, EngineCol.Rate1);
-            greaterOfUnitRateRoy.DoMath(BaseCol.Amount, MathOp.TIMES, EngineCol.Rate3);
-            greaterOfUnitRateRoy.DoMath(BaseCol.Amount, MathOp.TIMES, BaseCol.Units);
+            var _ops7 = new MathList
+            {
+                new MathOperation(BaseCol.Amount, MathOp.SETTO, EngineCol.Rate1),
+                new MathOperation(BaseCol.Amount, MathOp.TIMES, EngineCol.Rate3),
+                new MathOperation(BaseCol.Amount, MathOp.TIMES, BaseCol.Units),
+            };
+            greaterOfUnitRateRoy.DoMath(_ops7);
             var greaterOfUnitRateRoyWithUnits = ResultSet.EmptySet();
             greaterOfUnitRateRoyWithUnits.CombineAndRelease(saveValidGreaterOfWithUnitRate, greaterOfUnitRateRoy);
             greaterOfUnitRateRoyWithUnits.SetValue(CustCol.RoyaltyMethod, RoyaltyMethod.Unit_Rate);
             var roundedGreaterOfUnitRateRoyWithUnits = CommonLib.RoundAmountsTo2DecAndUnitsTo0Dec(greaterOfUnitRateRoyWithUnits);
-            roundedGreaterOfUnitRateRoyWithUnits.DoMath(EngineCol.Rate2,    MathOp.SETTO, BaseCol.Amount);
-            roundedGreaterOfUnitRateRoyWithUnits.DoMath(BaseCol.Amount,     MathOp.SETTO, "0");
+            var _ops8 = new MathList
+            {
+                new MathOperation(EngineCol.Rate2,    MathOp.SETTO, BaseCol.Amount),
+                new MathOperation(BaseCol.Amount,     MathOp.SETTO, "0"),
+            };
+            roundedGreaterOfUnitRateRoyWithUnits.DoMath(_ops8);
             var posUnitRateAmountAndUnits = roundedGreaterOfUnitRateRoyWithUnits.GetData(new FilterClause {
                 new Criteria(EngineCol.Rate2, CompareOp.GE, "0"),
                 new Criteria(BaseCol.Units,   CompareOp.GE, "0")
@@ -493,8 +525,12 @@ namespace VelocityProto
             // Within set: zero out the keys we want to ignore for grouping.
             var forGreaterOfNumberingWithin = forGreaterOfNumbering.Copy();
             forGreaterOfNumberingWithin.SetValue(CustCol.RoyaltyMethod, RoyaltyMethod.Unspecified);
-            forGreaterOfNumberingWithin.DoMath(EngineCol.Rate1, MathOp.SETTO, "0");
-            forGreaterOfNumberingWithin.DoMath(EngineCol.Rate2, MathOp.SETTO, "0");
+            var _ops9 = new MathList
+            {
+                new MathOperation(EngineCol.Rate1, MathOp.SETTO, "0"),
+                new MathOperation(EngineCol.Rate2, MathOp.SETTO, "0"),
+            };
+            forGreaterOfNumberingWithin.DoMath(_ops9);
 
             // Greater Of: sort Rate2 DESC (highest royalty first), tiebreak by RoyaltyMethod ASC.
             Comparison<CalcResultRow> greaterOfSort = (a, b) =>
@@ -508,16 +544,24 @@ namespace VelocityProto
             var greaterOfOutput = forGreaterOfGroupNumbered.GetData(BaseCol.Amount, CompareOp.EQ, "0");
             forGreaterOfGroupNumbered.Release();
             // Restore Amount from Rate2 (which still holds the rounded royalty).
-            greaterOfOutput.DoMath(BaseCol.Amount,  MathOp.SETTO, EngineCol.Rate2);
-            greaterOfOutput.DoMath(EngineCol.Rate2, MathOp.SETTO, "0");
+            var _ops10 = new MathList
+            {
+                new MathOperation(BaseCol.Amount,  MathOp.SETTO, EngineCol.Rate2),
+                new MathOperation(EngineCol.Rate2, MathOp.SETTO, "0"),
+            };
+            greaterOfOutput.DoMath(_ops10);
 
             // Same tournament shape for negatives, but ASC sort.
             var forLesserOfNumbering = ResultSet.EmptySet();
             forLesserOfNumbering.CombineAndRelease(negPctSales, negUnitRate);
             var forLesserOfNumberingWithin = forLesserOfNumbering.Copy();
             forLesserOfNumberingWithin.SetValue(CustCol.RoyaltyMethod, RoyaltyMethod.Unspecified);
-            forLesserOfNumberingWithin.DoMath(EngineCol.Rate1, MathOp.SETTO, "0");
-            forLesserOfNumberingWithin.DoMath(EngineCol.Rate2, MathOp.SETTO, "0");
+            var _ops11 = new MathList
+            {
+                new MathOperation(EngineCol.Rate1, MathOp.SETTO, "0"),
+                new MathOperation(EngineCol.Rate2, MathOp.SETTO, "0"),
+            };
+            forLesserOfNumberingWithin.DoMath(_ops11);
             // Lesser Of: sort Rate2 ASC (most-negative royalty first), tiebreak by RoyaltyMethod ASC.
             Comparison<CalcResultRow> lesserOfSort = (a, b) =>
             {
@@ -529,8 +573,12 @@ namespace VelocityProto
             forLesserOfNumberingWithin.Release();
             var lesserOfOutput = forLesserOfGroupNumbered.GetData(BaseCol.Amount, CompareOp.EQ, "0");
             forLesserOfGroupNumbered.Release();
-            lesserOfOutput.DoMath(BaseCol.Amount,  MathOp.SETTO, EngineCol.Rate2);
-            lesserOfOutput.DoMath(EngineCol.Rate2, MathOp.SETTO, "0");
+            var _ops12 = new MathList
+            {
+                new MathOperation(BaseCol.Amount,  MathOp.SETTO, EngineCol.Rate2),
+                new MathOperation(EngineCol.Rate2, MathOp.SETTO, "0"),
+            };
+            lesserOfOutput.DoMath(_ops12);
 
             // WinnerCombo: combine positive winners + negative winners; tag AltComment="Greater Of".
             var winnerCombo = ResultSet.EmptySet();
@@ -579,8 +627,12 @@ namespace VelocityProto
             var saveNetSalesUnitRateWRoyaltyRateWinnerOutput = netSalesUnitRateWRoyaltyRateWinnerOutput.Copy();
             saveNetSalesUnitRateWRoyaltyRateWinnerOutput.DoMath(BaseCol.Amount, MathOp.SETTO, "0");
             var unitRateRoyWinner = netSalesUnitRateWRoyaltyRateWinnerOutput.Copy();
-            unitRateRoyWinner.DoMath(BaseCol.Amount, MathOp.SETTO, BaseCol.Units);
-            unitRateRoyWinner.DoMath(BaseCol.Amount, MathOp.TIMES, EngineCol.Rate1);
+            var _ops13 = new MathList
+            {
+                new MathOperation(BaseCol.Amount, MathOp.SETTO, BaseCol.Units),
+                new MathOperation(BaseCol.Amount, MathOp.TIMES, EngineCol.Rate1),
+            };
+            unitRateRoyWinner.DoMath(_ops13);
             var roundedUnitRateRoyWinner = CommonLib.RoundAmountsTo2DecAndUnitsTo0Dec(unitRateRoyWinner);
             var unitRateRoyWinnerWithUnitsOutput = ResultSet.EmptySet();
             unitRateRoyWinnerWithUnitsOutput.CombineAndRelease(saveNetSalesUnitRateWRoyaltyRateWinnerOutput, roundedUnitRateRoyWinner);
@@ -638,10 +690,14 @@ namespace VelocityProto
             allRoysEarnedCombined.SetValue(CustCol.ActivityType, ActivityType.Royalties_Earned);
             allRoysEarnedCombined.DoMath(BaseCol.Units2, MathOp.SETTO, BaseCol.Amount);   // stash royalty for display
             // RoysEarnedPctOfPct = Rate3 * Amount → Rate2 → Amount.  Rate3 holds PctOfPct.
-            allRoysEarnedCombined.DoMath(EngineCol.Rate2, MathOp.SETTO, EngineCol.Rate3);
-            allRoysEarnedCombined.DoMath(EngineCol.Rate2, MathOp.TIMES, BaseCol.Amount);
-            allRoysEarnedCombined.DoMath(BaseCol.Amount,  MathOp.SETTO, EngineCol.Rate2);
-            allRoysEarnedCombined.DoMath(EngineCol.Rate2, MathOp.SETTO, "0");
+            var _ops14 = new MathList
+            {
+                new MathOperation(EngineCol.Rate2, MathOp.SETTO, EngineCol.Rate3),
+                new MathOperation(EngineCol.Rate2, MathOp.TIMES, BaseCol.Amount),
+                new MathOperation(BaseCol.Amount,  MathOp.SETTO, EngineCol.Rate2),
+                new MathOperation(EngineCol.Rate2, MathOp.SETTO, "0"),
+            };
+            allRoysEarnedCombined.DoMath(_ops14);
             var roundedRoyaltiesEarned = CommonLib.RoundAllTo2Dec(allRoysEarnedCombined);
 
             var royaltyOutput = ResultSet.EmptySet();
@@ -872,9 +928,13 @@ namespace VelocityProto
 
             // SummarizeForRoyaltiesDue consumes 'finals' (Summarize-then-conditional-Release pattern).
             var summarizedFinals = SummarizeForRoyaltiesDue(finals);
-            summarizedFinals.DoMath(BaseCol.Amount2, MathOp.SETTO, "0");
-            summarizedFinals.DoMath(BaseCol.Units,   MathOp.SETTO, "0");
-            summarizedFinals.DoMath(BaseCol.Units2,  MathOp.SETTO, "0");
+            var _ops15 = new MathList
+            {
+                new MathOperation(BaseCol.Amount2, MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units,   MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units2,  MathOp.SETTO, "0"),
+            };
+            summarizedFinals.DoMath(_ops15);
 
             var royaltiesDueOutput = CommonLib.RemoveZeros(summarizedFinals);
 
@@ -1002,9 +1062,13 @@ namespace VelocityProto
             // (DealScript convention: PayRecipients placed the pmt recipient in Contact2,
             //  StatementRecipients placed the stmt recipient in Contact3 — swap so the
             //  display shows them in the customer's expected slots.)
-            stmtRecipientPossibilities.DoMath(new ContactCol("ThirdParty"),         MathOp.SETTO, new ContactCol("PaymentRecipient"));
-            stmtRecipientPossibilities.DoMath(new ContactCol("PaymentRecipient"),   MathOp.SETTO, new ContactCol("StatementRecipient"));
-            stmtRecipientPossibilities.DoMath(new ContactCol("StatementRecipient"), MathOp.SETTO, new ContactCol("ThirdParty"));
+            var _ops16 = new MathList
+            {
+                new MathOperation(new ContactCol("ThirdParty"),         MathOp.SETTO, new ContactCol("PaymentRecipient")),
+                new MathOperation(new ContactCol("PaymentRecipient"),   MathOp.SETTO, new ContactCol("StatementRecipient")),
+                new MathOperation(new ContactCol("StatementRecipient"), MathOp.SETTO, new ContactCol("ThirdParty")),
+            };
+            stmtRecipientPossibilities.DoMath(_ops16);
 
             stmtRecipientPossibilities.SetValue(new ContactCol("ThirdParty"), new AlliantEntity(0));   // unspecified
             stmtRecipientPossibilities.DoMath(BaseCol.Amount, MathOp.SETTO, "99");
@@ -1050,9 +1114,13 @@ namespace VelocityProto
 
             // SummarizeForGLEntries consumes 'forGl'.
             var summarizeGl = SummarizeForGLEntries(forGl);
-            summarizeGl.DoMath(BaseCol.Amount2, MathOp.SETTO, "0");
-            summarizeGl.DoMath(BaseCol.Units,   MathOp.SETTO, "0");
-            summarizeGl.DoMath(BaseCol.Units2,  MathOp.SETTO, "0");
+            var _ops17 = new MathList
+            {
+                new MathOperation(BaseCol.Amount2, MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units,   MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units2,  MathOp.SETTO, "0"),
+            };
+            summarizeGl.DoMath(_ops17);
 
             var nonZeroGl = CommonLib.RemoveZeros(summarizeGl);
 
@@ -1100,8 +1168,12 @@ namespace VelocityProto
             nonZeroGl.Release();
 
             // Stamp Comment ← ActivityTypeUDF.GLAccount, Division ← ContractUDF.Division.
-            final.DoMath(EngineCol.Comment, MathOp.SETTO, ActivityTypeUDF.GLAccount);
-            final.DoMath(CustCol.Division,  MathOp.SETTO, ContractUDF.Division);
+            var _ops18 = new MathList
+            {
+                new MathOperation(EngineCol.Comment, MathOp.SETTO, ActivityTypeUDF.GLAccount),
+                new MathOperation(CustCol.Division,  MathOp.SETTO, ContractUDF.Division),
+            };
+            final.DoMath(_ops18);
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubGLEntries");
             return final;
@@ -1875,7 +1947,11 @@ namespace VelocityProto
             var dspGetDealRevAlloc = ResultSet.ZeroSet();
             dspGetDealRevAlloc.DoMath(EngineCol.Comment, MathOp.SETTO, "Revenue Allocation");
             dspGetDealRevAlloc.DoMath(EngineCol.Rate1,   MathOp.SETTO, "7");   // admin class filter
-            var dealsToRetrieve = DS.ExecuteDSP("p_ds_get_deal_list", dspGetDealRevAlloc);
+            // var dealsToRetrieve = DS.ExecuteDSP("p_ds_get_deal_list", dspGetDealRevAlloc);
+            var dealsToRetrieveWithModel = DS.ExecuteDSP("p_ds_get_deal_list", dspGetDealRevAlloc);
+            dspGetDealRevAlloc.Release();
+            var dealsToRetrieve = dealsToRetrieveWithModel.GetData(EngineCol.Comment, CompareOp.NE, "Revenue Allocation Contract Model");
+            dealsToRetrieveWithModel.Release();
             dspGetDealRevAlloc.Release();
 
             // DSPRunStatus = p_ds_get_deal_run_status using calc-period request + deal list.
@@ -1921,13 +1997,15 @@ namespace VelocityProto
             dealsInError.Release();
             dspRunStatus.Release();
 
-            // p_ds_get_calc_results: retrieve approved ITD trx from contributing Deals at
-            // calc period.  Builds a one-row request and calls the DSP.
+            // TODO(gcr-port): this site sets Rate2=1 (Contract Scope filter) which the
+            // C# ResultSet.GetDataFromDealCalcResults port does NOT implement.  Leaving
+            // this on the DSP until either the port grows scope-filter support or a
+            // scope-aware C# equivalent lands.
             var dspGetResultsInput = ResultSet.ZeroSet();
             dspGetResultsInput.SetValue(CustCol.OtherPeriod, Job.CurrentCalcPeriod);
-            dspGetResultsInput.DoMath(EngineCol.Comment,    MathOp.SETTO, "Udkey3");
+            dspGetResultsInput.SetTextValue(EngineCol.Comment,    "UDKey3");
             dspGetResultsInput.SetValue(CustCol.ActualPeriod, new AlliantEntity(0)); // unspecified - "all"
-            dspGetResultsInput.DoMath(EngineCol.AltComment, MathOp.SETTO, "Complete, Approved");
+            dspGetResultsInput.SetTextValue(EngineCol.AltComment, "Complete, Approved");
             dspGetResultsInput.DoMath(EngineCol.Price1,     MathOp.SETTO, "1");   // ContractID in Comment1
             dspGetResultsInput.DoMath(EngineCol.Rate2,      MathOp.SETTO, "1");   // match contract scope
 
@@ -1954,13 +2032,21 @@ namespace VelocityProto
             var allowedTrxs = readyForAllowable.GetData(EngineCol.AltComment, CompareOp.EQ, "Yes",
                                                         "GetImportAdjsITD.AllowedTrxs");
             readyForAllowable.Release();
-            allowedTrxs.DoMath(EngineCol.AltComment, MathOp.SETTO, DS.F_NULL_STRING());
-            allowedTrxs.DoMath(EngineCol.Rate2,      MathOp.SETTO, "-1");
+            var _ops19 = new MathList
+            {
+                new MathOperation(EngineCol.AltComment, MathOp.SETTO, DS.F_NULL_STRING()),
+                new MathOperation(EngineCol.Rate2,      MathOp.SETTO, "-1"),
+            };
+            allowedTrxs.DoMath(_ops19);
 
             // SourceCurrency <- ContractUDF.DealCurrency, Rate2 <- SourceCurrencyUDF.ExchangeRate.
             var withExchangeRate = allowedTrxs;
-            withExchangeRate.DoMath(CustCol.SourceCurrency, MathOp.SETTO, ContractUDF.DealCurrency);
-            withExchangeRate.DoMath(EngineCol.Rate2,        MathOp.SETTO, SourceCurrencyUDF.ExchangeRate);
+            var _ops20 = new MathList
+            {
+                new MathOperation(CustCol.SourceCurrency, MathOp.SETTO, ContractUDF.DealCurrency),
+                new MathOperation(EngineCol.Rate2,        MathOp.SETTO, SourceCurrencyUDF.ExchangeRate),
+            };
+            withExchangeRate.DoMath(_ops20);
 
             // Invalid exchange rates: Rate2 still -1 because the lookup didn't resolve.
             // Surface them as an error-in-run via p_ds_udkey_to_text + p_ds_set_calc_error_in_run.
@@ -1977,10 +2063,11 @@ namespace VelocityProto
                 sourceCurrencyError.SetEntity(CustCol.SourceCurrency, L_SourceCurrency[0]);
                 var idToComment = ResultSet.ZeroSet();
                 idToComment.DoMath(EngineCol.AltComment, MathOp.SETTO, "-");
-                idToComment.DoMath(EngineCol.Comment,    MathOp.SETTO, "UDkey17");
+                idToComment.SetTextValue(EngineCol.Comment,    "UDKey17");
                 idToComment.DoMath(EngineCol.Rate1,      MathOp.SETTO, "0");   // 0 = move to Comment1
                 idToComment.DoMath(EngineCol.Rate2,      MathOp.SETTO, "1");   // 1 = use ID
-                DS.ExecuteDSP("p_ds_udkey_to_text", sourceCurrencyError, idToComment).Release();
+                // Fix: SQL DSP silently no-op'd; C# wrapper mutates IS1 in-place as intended.
+                ResultSetDSPs.UDKeyToText(sourceCurrencyError, idToComment);
                 idToComment.Release();
                 sourceCurrencyError.DoMath(EngineCol.AltComment, MathOp.SETTO, "Exchange Rate not found for Source Currency.");
                 ResultSetDSPs.SetCalcErrorInRun(sourceCurrencyError).Release();
@@ -1992,20 +2079,32 @@ namespace VelocityProto
                                                               "GetImportAdjsITD.ValidExchangeRate");
             withExchangeRate.Release();
             // Stash unconverted Amount in Amount2, Price1 in Price2; clear primaries.
-            validExchangeRate.DoMath(BaseCol.Amount2,  MathOp.SETTO, BaseCol.Amount);
-            validExchangeRate.DoMath(BaseCol.Units2,   MathOp.SETTO, "0");
-            validExchangeRate.DoMath(EngineCol.Price2, MathOp.SETTO, EngineCol.Price1);
-            validExchangeRate.DoMath(BaseCol.Amount,   MathOp.SETTO, "0");
+            var _ops21 = new MathList
+            {
+                new MathOperation(BaseCol.Amount2,  MathOp.SETTO, BaseCol.Amount),
+                new MathOperation(BaseCol.Units2,   MathOp.SETTO, "0"),
+                new MathOperation(EngineCol.Price2, MathOp.SETTO, EngineCol.Price1),
+                new MathOperation(BaseCol.Amount,   MathOp.SETTO, "0"),
+            };
+            validExchangeRate.DoMath(_ops21);
 
             // ConvertedAmount: Rate2 * Amount2 -> Amount.
             // ConvertedPrice : Rate2 * Price2 -> Amount2  (DealScript stages into Amount2 then later swaps).
             var convertedAmount = validExchangeRate.Copy();
-            convertedAmount.DoMath(BaseCol.Amount,  MathOp.SETTO, BaseCol.Amount2);
-            convertedAmount.DoMath(BaseCol.Amount,  MathOp.TIMES, EngineCol.Rate2);
+            var _ops22 = new MathList
+            {
+                new MathOperation(BaseCol.Amount,  MathOp.SETTO, BaseCol.Amount2),
+                new MathOperation(BaseCol.Amount,  MathOp.TIMES, EngineCol.Rate2),
+            };
+            convertedAmount.DoMath(_ops22);
 
             var convertedPrice = validExchangeRate.Copy();
-            convertedPrice.DoMath(BaseCol.Amount2,  MathOp.SETTO, EngineCol.Price2);
-            convertedPrice.DoMath(BaseCol.Amount2,  MathOp.TIMES, EngineCol.Rate2);
+            var _ops23 = new MathList
+            {
+                new MathOperation(BaseCol.Amount2,  MathOp.SETTO, EngineCol.Price2),
+                new MathOperation(BaseCol.Amount2,  MathOp.TIMES, EngineCol.Rate2),
+            };
+            convertedPrice.DoMath(_ops23);
 
             var convertedAmountAndPrice = ResultSet.EmptySet();
             convertedAmountAndPrice.CombineAndRelease(convertedAmount, convertedPrice);
@@ -2016,14 +2115,22 @@ namespace VelocityProto
             var roundedConversion = CommonLib.RoundAmountsTo2DecAndUnitsTo0Dec(summarizedConverted);
             Job.CurrentCalcContext = _ctxSubGetImportAdjsPriorITD;
             // Move converted price into Units2 (display slot), zero Amount2.
-            roundedConversion.DoMath(BaseCol.Units2,  MathOp.SETTO, BaseCol.Amount2);
-            roundedConversion.DoMath(BaseCol.Amount2, MathOp.SETTO, "0");
+            var _ops24 = new MathList
+            {
+                new MathOperation(BaseCol.Units2,  MathOp.SETTO, BaseCol.Amount2),
+                new MathOperation(BaseCol.Amount2, MathOp.SETTO, "0"),
+            };
+            roundedConversion.DoMath(_ops24);
 
             var convertedTrx = ResultSet.EmptySet();
             convertedTrx.CombineAndRelease(validExchangeRate, roundedConversion);
             // Restore Price1 from Price2 stash; zero Price2.
-            convertedTrx.DoMath(EngineCol.Price1, MathOp.SETTO, EngineCol.Price2);
-            convertedTrx.DoMath(EngineCol.Price2, MathOp.SETTO, "0");
+            var _ops25 = new MathList
+            {
+                new MathOperation(EngineCol.Price1, MathOp.SETTO, EngineCol.Price2),
+                new MathOperation(EngineCol.Price2, MathOp.SETTO, "0"),
+            };
+            convertedTrx.DoMath(_ops25);
             var convertedTrxSummarized = convertedTrx.Summarize();
             if (!ReferenceEquals(convertedTrxSummarized, convertedTrx)) convertedTrx.Release();
             Job.CurrentCalcContext = _ctxSubGetImportAdjsPriorITD;
@@ -2105,9 +2212,13 @@ namespace VelocityProto
                 new Criteria(CustCol.TransType,    CompareOp.EQ,  TransType.ITD)
             }, "SubGI.RoyDueITD");
             roysForGuarantee.Release();
-            royDueItd.DoMath(BaseCol.Amount2, MathOp.SETTO, "0");
-            royDueItd.DoMath(BaseCol.Units,   MathOp.SETTO, "0");
-            royDueItd.DoMath(BaseCol.Units2,  MathOp.SETTO, "0");
+            var _ops26 = new MathList
+            {
+                new MathOperation(BaseCol.Amount2, MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units,   MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units2,  MathOp.SETTO, "0"),
+            };
+            royDueItd.DoMath(_ops26);
 
             // SummarizeForGuaranteeInstallment (1591) consumes royDueItd.
             var royDueSumm = SummarizeForGuaranteeInstallment(royDueItd);
@@ -2145,16 +2256,26 @@ namespace VelocityProto
 
             // GuarInstallmentGroupNoInPrice2: shift Amount(group #) -> Price2, +1 to start at 1.
             var guarInstallmentGroupNoInPrice2 = guarInstallmentGroupNo;
-            guarInstallmentGroupNoInPrice2.DoMath(EngineCol.Price2, MathOp.SETTO, BaseCol.Amount);
-            guarInstallmentGroupNoInPrice2.DoMath(EngineCol.Price2, MathOp.PLUS,  "1");
-            guarInstallmentGroupNoInPrice2.DoMath(BaseCol.Amount2, MathOp.SETTO, "0");
+            var _ops27 = new MathList
+            {
+                new MathOperation(EngineCol.Price2, MathOp.SETTO, BaseCol.Amount),
+                new MathOperation(EngineCol.Price2, MathOp.PLUS,  "1"),
+                new MathOperation(BaseCol.Amount2, MathOp.SETTO, "0"),
+            };
+            guarInstallmentGroupNoInPrice2.DoMath(_ops27);
 
             // p_ds_explode_periods: monthly explode of [ActualPeriod..OtherPeriod] per row.
             var monthlyPeriodType = ResultSet.ZeroSet();
-            monthlyPeriodType.DoMath(EngineCol.Comment, MathOp.SETTO, "Monthly");
-            monthlyPeriodType.DoMath(EngineCol.Rate1,   MathOp.SETTO, "1");
+            var _ops28 = new MathList
+            {
+                new MathOperation(EngineCol.Comment, MathOp.SETTO, "Monthly"),
+                new MathOperation(EngineCol.Rate1,   MathOp.SETTO, "1"),
+            };
+            monthlyPeriodType.DoMath(_ops28);
             var periodsExplodedErrors = ResultSet.EmptySet();
-            var periodsExploded = DS.ExecuteDSP("p_ds_explode_periods",
+            // TODO(ep-port): remove parity harness and call ExplodePeriods directly once field data confirms SQL/C# parity.
+            var periodsExploded = ResultSetDSPs.ExplodePeriodsWithParity(
+                "RoyaltyLib.periodsExploded",
                 guarInstallmentGroupNoInPrice2, monthlyPeriodType, periodsExplodedErrors);
             monthlyPeriodType.Release();
             periodsExplodedErrors.Release();
@@ -2172,23 +2293,35 @@ namespace VelocityProto
             var periodsExplodedWGrpAndSeqNo = ResultSetDSPs.GroupNumbering(periodsExplodedUnspecified, periodsExplodedSumm, sortByActualOnly);
             // Move Amount(seq #) -> Rate3, then add 2.  Clear Amount.
             var periodsExplodedWGrpAndSeqNoInRate3 = periodsExplodedWGrpAndSeqNo;
-            periodsExplodedWGrpAndSeqNoInRate3.DoMath(EngineCol.Rate3, MathOp.SETTO, BaseCol.Amount);
-            periodsExplodedWGrpAndSeqNoInRate3.DoMath(EngineCol.Rate3, MathOp.PLUS,  "2");
-            periodsExplodedWGrpAndSeqNoInRate3.DoMath(BaseCol.Amount,  MathOp.SETTO, "0");
+            var _ops29 = new MathList
+            {
+                new MathOperation(EngineCol.Rate3, MathOp.SETTO, BaseCol.Amount),
+                new MathOperation(EngineCol.Rate3, MathOp.PLUS,  "2"),
+                new MathOperation(BaseCol.Amount,  MathOp.SETTO, "0"),
+            };
+            periodsExplodedWGrpAndSeqNoInRate3.DoMath(_ops29);
 
             // ─── Phase C: Payment-shifting (1 period earlier than due date) ──
-            var guarInstallmentItdWGroupNo = DS.ExecuteDSP("p_ds_detail_merge",
+            // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+            var guarInstallmentItdWGroupNo = ResultSetDSPs.DetailMergeWithParity(
+                "RoyaltyLib.guarInstallmentItdWGroupNo",
                 guaranteeInstallmentItdOutput, guarInstallmentGroupNoInPrice2);
             // Stash original Actual/Other period in scratch UDKey4/5 for restore below.
-            guarInstallmentItdWGroupNo.DoMath(CustCol.Channel,   MathOp.SETTO, CustCol.ActualPeriod);
-            guarInstallmentItdWGroupNo.DoMath(CustCol.Territory, MathOp.SETTO, CustCol.OtherPeriod);
+            var _ops30 = new MathList
+            {
+                new MathOperation(CustCol.Channel,   MathOp.SETTO, CustCol.ActualPeriod),
+                new MathOperation(CustCol.Territory, MathOp.SETTO, CustCol.OtherPeriod),
+            };
+            guarInstallmentItdWGroupNo.DoMath(_ops30);
 
             // Map FromDate -> ActualPeriod.
             var mappingFromDate = ResultSet.ZeroSet();
             mappingFromDate.DoMath(BaseCol.Amount, MathOp.SETTO, "1");   // 1 = source col code "FromDate"
             var mapToActualPeriod = ResultSet.ZeroSet();
             mapToActualPeriod.DoMath(BaseCol.Amount, MathOp.SETTO, "2"); // 2 = target col code "ActualPeriod"
-            var guarInstallmentDuePeriod = DS.ExecuteDSP("p_ds_date_to_period",
+            // TODO(dtp-port): remove parity harness and call DateToPeriod directly once field data confirms SQL/C# parity.
+            var guarInstallmentDuePeriod = ResultSetDSPs.DateToPeriodWithParity(
+                "RoyaltyLib.guarInstallmentDuePeriod",
                 guarInstallmentItdWGroupNo, mappingFromDate, mapToActualPeriod);
             mappingFromDate.Release();
             mapToActualPeriod.Release();
@@ -2197,12 +2330,16 @@ namespace VelocityProto
             // Shift ActualPeriod back 1 period.
             var periodShift = ResultSet.ZeroSet();
             periodShift.DoMath(EngineCol.Rate1, MathOp.SETTO, "-1");
-            var guarInstallmentWPmtPeriod = DS.ExecuteDSP("p_ds_periods_from",
+            // TODO(pf-port): remove parity harness and call PeriodsFrom directly once field data confirms SQL/C# parity.
+            var guarInstallmentWPmtPeriod = ResultSetDSPs.PeriodsFromWithParity(
+                "RoyaltyLib.guarInstallmentWPmtPeriod",
                 guarInstallmentDuePeriod, periodShift);
             periodShift.Release();
 
             // Match shifted-payment-period to per-group seq nos.
-            var guarInstallWPmtPeriodAndSeqNo = DS.ExecuteDSP("p_ds_detail_merge",
+            // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+            var guarInstallWPmtPeriodAndSeqNo = ResultSetDSPs.DetailMergeWithParity(
+                "RoyaltyLib.guarInstallWPmtPeriodAndSeqNo",
                 guarInstallmentWPmtPeriod, periodsExplodedWGrpAndSeqNoInRate3);
 
             // GuarInstallmentOutsideMaybe = (GuarInstallmentWPmtPeriod - GuarInstallWPmtPeriodAndSeqNo) with Rate3=1.
@@ -2216,19 +2353,31 @@ namespace VelocityProto
 
             // Restore Actual/Other from scratch UDKey4/5; clear those.  Pmt seq stays in Rate3.
             var guaranteeInstallmentWGroupAndSeqNo = allGuarInstallWPmtPeriodAndPmtSeqNo.Copy();
-            guaranteeInstallmentWGroupAndSeqNo.DoMath(CustCol.ActualPeriod, MathOp.SETTO, CustCol.Channel);
-            guaranteeInstallmentWGroupAndSeqNo.DoMath(CustCol.OtherPeriod,  MathOp.SETTO, CustCol.Territory);
+            var _ops31 = new MathList
+            {
+                new MathOperation(CustCol.ActualPeriod, MathOp.SETTO, CustCol.Channel),
+                new MathOperation(CustCol.OtherPeriod,  MathOp.SETTO, CustCol.Territory),
+            };
+            guaranteeInstallmentWGroupAndSeqNo.DoMath(_ops31);
             guaranteeInstallmentWGroupAndSeqNo.SetValue(CustCol.Channel,   new AlliantEntity(0));
             guaranteeInstallmentWGroupAndSeqNo.SetValue(CustCol.Territory, new AlliantEntity(0));
             // Bal seq = pmt seq + 1, stored in UDKey14 (Tier).
-            guaranteeInstallmentWGroupAndSeqNo.DoMath(CustCol.Tier, MathOp.SETTO, EngineCol.Rate3);
-            guaranteeInstallmentWGroupAndSeqNo.DoMath(CustCol.Tier, MathOp.PLUS,  "1");
+            var _ops32 = new MathList
+            {
+                new MathOperation(CustCol.Tier, MathOp.SETTO, EngineCol.Rate3),
+                new MathOperation(CustCol.Tier, MathOp.PLUS,  "1"),
+            };
+            guaranteeInstallmentWGroupAndSeqNo.DoMath(_ops32);
 
             // Prep PmtGuaranteeInstallmentWZeros: zero rows for all periods in term.
             var guarInstallNoOtherPrd = allGuarInstallWPmtPeriodAndPmtSeqNo.Copy();
             guarInstallNoOtherPrd.SetValue(CustCol.OtherPeriod, new AlliantEntity(0));
-            guarInstallNoOtherPrd.DoMath(CustCol.Channel,   MathOp.SETTO, CustCol.OtherPeriod);
-            guarInstallNoOtherPrd.DoMath(CustCol.Territory, MathOp.SETTO, CustCol.OtherPeriod);
+            var _ops33 = new MathList
+            {
+                new MathOperation(CustCol.Channel,   MathOp.SETTO, CustCol.OtherPeriod),
+                new MathOperation(CustCol.Territory, MathOp.SETTO, CustCol.OtherPeriod),
+            };
+            guarInstallNoOtherPrd.DoMath(_ops33);
             guarInstallNoOtherPrd.SetValue("FromDate", "");   // F_NULL_DATE() marker   // F_NULL_DATE
             allGuarInstallWPmtPeriodAndPmtSeqNo.Release();
 
@@ -2240,19 +2389,31 @@ namespace VelocityProto
             pmtGuaranteeInstallmentWZerosSumm.DoMath(EngineCol.Rate1, MathOp.SETTO, BaseCol.Amount);
 
             // Match seq nos on the unshifted (due-date) ActualPeriod for balance-seq.
-            var guarInstallmentWBalSeqNo = DS.ExecuteDSP("p_ds_detail_merge",
+            // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+            var guarInstallmentWBalSeqNo = ResultSetDSPs.DetailMergeWithParity(
+                "RoyaltyLib.guarInstallmentWBalSeqNo",
                 guarInstallmentDuePeriod, periodsExplodedWGrpAndSeqNoInRate3);
             guarInstallmentDuePeriod.Release();
             guarInstallmentWBalSeqNo.SetValue(CustCol.OtherPeriod, new AlliantEntity(0));
-            guarInstallmentWBalSeqNo.DoMath(CustCol.Channel,   MathOp.SETTO, CustCol.OtherPeriod);
-            guarInstallmentWBalSeqNo.DoMath(CustCol.Territory, MathOp.SETTO, CustCol.OtherPeriod);
+            var _ops34 = new MathList
+            {
+                new MathOperation(CustCol.Channel,   MathOp.SETTO, CustCol.OtherPeriod),
+                new MathOperation(CustCol.Territory, MathOp.SETTO, CustCol.OtherPeriod),
+            };
+            guarInstallmentWBalSeqNo.DoMath(_ops34);
             var guarInstallWBalSeqNoAndlNoDueDate = guarInstallmentWBalSeqNo;
             guarInstallWBalSeqNoAndlNoDueDate.SetValue("FromDate", "");   // F_NULL_DATE() marker
-            guarInstallWBalSeqNoAndlNoDueDate.DoMath(BaseCol.Units,  MathOp.SETTO, BaseCol.Amount);
-            guarInstallWBalSeqNoAndlNoDueDate.DoMath(BaseCol.Amount, MathOp.SETTO, "0");
+            var _ops35 = new MathList
+            {
+                new MathOperation(BaseCol.Units,  MathOp.SETTO, BaseCol.Amount),
+                new MathOperation(BaseCol.Amount, MathOp.SETTO, "0"),
+            };
+            guarInstallWBalSeqNoAndlNoDueDate.DoMath(_ops35);
 
             // Royalties Earned: propagate group/seq to RoyDueToUse + zero-pad missing periods.
-            var royDueWGrpNoAndBalSeqNo = DS.ExecuteDSP("p_ds_detail_merge",
+            // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+            var royDueWGrpNoAndBalSeqNo = ResultSetDSPs.DetailMergeWithParity(
+                "RoyaltyLib.royDueWGrpNoAndBalSeqNo",
                 royDueToUse, periodsExplodedWGrpAndSeqNoInRate3);
             royDueToUse.Release();
             var royDueWZeros = ResultSet.EmptySet();
@@ -2269,16 +2430,20 @@ namespace VelocityProto
             Job.CurrentCalcContext = _ctxSubGuaranteeInstallments;
 
             var groupByGroupNo = ResultSet.ZeroSet();
-            groupByGroupNo.DoMath(EngineCol.Comment, MathOp.SETTO, "Price2");
+            groupByGroupNo.SetTextValue(EngineCol.Comment, "Price2");
             var orderByActualPeriodAsc = ResultSet.ZeroSet();
             orderByActualPeriodAsc.DoMath(EngineCol.Comment, MathOp.SETTO, "ActualPeriod ASC");
 
-            var guarInstallRoyDueRunningTotal = DS.ExecuteDSP("p_ds_running_total",
+            // TODO(rt-port): remove parity harness and call RunningTotal directly once field data confirms SQL/C# parity.
+            var guarInstallRoyDueRunningTotal = ResultSetDSPs.RunningTotalWithParity(
+                "RoyaltyLib.guarInstallRoyDueRunningTotal",
                 guarInstallmentAndRoyDueSumm, groupByGroupNo, orderByActualPeriodAsc);
             guarInstallmentAndRoyDueSumm.Release();
 
             // Merge in payment guar info (Rate1 = pmt amount, 1-period-early).
-            var guarInstallAndRoyDueRunningTotal = DS.ExecuteDSP("p_ds_detail_merge",
+            // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+            var guarInstallAndRoyDueRunningTotal = ResultSetDSPs.DetailMergeWithParity(
+                "RoyaltyLib.guarInstallAndRoyDueRunningTotal",
                 guarInstallRoyDueRunningTotal, pmtGuaranteeInstallmentWZerosSumm);
             guarInstallRoyDueRunningTotal.Release();
 
@@ -2286,7 +2451,9 @@ namespace VelocityProto
             // p_ds_detail_merge with Amount=55 marker; subtract back to find pmts not in running total.
             var pmtGuaranteeInstallmentForMatching = pmtGuaranteeInstallmentWZerosSumm.Copy();
             pmtGuaranteeInstallmentForMatching.DoMath(BaseCol.Amount, MathOp.SETTO, "55");
-            var matchingPmtGuaranteeInstallment = DS.ExecuteDSP("p_ds_detail_merge",
+            // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+            var matchingPmtGuaranteeInstallment = ResultSetDSPs.DetailMergeWithParity(
+                "RoyaltyLib.matchingPmtGuaranteeInstallment",
                 pmtGuaranteeInstallmentForMatching, guarInstallAndRoyDueRunningTotal);
             var missingPmtGuaranteeInstallmentMaybe = ResultSet.Subtract(pmtGuaranteeInstallmentForMatching, matchingPmtGuaranteeInstallment, "SubGI.MissingPmtGuaranteeInstallmentMaybe");
             pmtGuaranteeInstallmentForMatching.Release();
@@ -2304,8 +2471,12 @@ namespace VelocityProto
                 CustCol.ActualPeriod, ListOp.INLIST, (EntityList)itdRange, "SubGI.GIAndRETotalToUse");
             giAndReTotalPlusMissingPmtTrxs.Release();
             // Ending Balance (Price1) = Amount2 (RoyTotal) - Units2 (GuarTotal).
-            giAndReTotalToUse.DoMath(EngineCol.Price1, MathOp.SETTO, BaseCol.Amount2);
-            giAndReTotalToUse.DoMath(EngineCol.Price1, MathOp.MINUS, BaseCol.Units2);
+            var _ops36 = new MathList
+            {
+                new MathOperation(EngineCol.Price1, MathOp.SETTO, BaseCol.Amount2),
+                new MathOperation(EngineCol.Price1, MathOp.MINUS, BaseCol.Units2),
+            };
+            giAndReTotalToUse.DoMath(_ops36);
             var guarInstallMinusRoyDue = giAndReTotalToUse;
 
             // ─── Phase G: WHILE loop over groups ──────────────────────────────
@@ -2368,12 +2539,18 @@ namespace VelocityProto
                     "SubGI.PriorEndingBal");
                 var priorEndingBalUnspec = priorEndingBal;
                 priorEndingBalUnspec.SetValue(CustCol.ActivityType, new AlliantEntity(0));
-                priorEndingBalUnspec.DoMath(EngineCol.Rate1, MathOp.SETTO, "0");
-                priorEndingBalUnspec.DoMath(EngineCol.Rate3, MathOp.SETTO, N_Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                priorEndingBalUnspec.DoMath(EngineCol.Price1, MathOp.SETTO, "0");
-                priorEndingBalUnspec.DoMath(CustCol.ActualPeriod, MathOp.SETTO, CustCol.ActivityType);
+                var _ops37 = new MathList
+                {
+                    new MathOperation(EngineCol.Rate1, MathOp.SETTO, "0"),
+                    new MathOperation(EngineCol.Rate3, MathOp.SETTO, N_Count.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    new MathOperation(EngineCol.Price1, MathOp.SETTO, "0"),
+                    new MathOperation(CustCol.ActualPeriod, MathOp.SETTO, CustCol.ActivityType),
+                };
+                priorEndingBalUnspec.DoMath(_ops37);
 
-                var priorEndingBalWCurrentDtls = DS.ExecuteDSP("p_ds_detail_merge",
+                // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+                var priorEndingBalWCurrentDtls = ResultSetDSPs.DetailMergeWithParity(
+                    "RoyaltyLib.priorEndingBalWCurrentDtls",
                     priorEndingBalUnspec, currentGuarInstallment);
                 var currentBeginningBal = ResultSet.EmptySet();
                 currentBeginningBal.CombineAndRelease(priorEndingBalWCurrentDtls, currentGuarInstallmentNonZeros);
@@ -2395,8 +2572,12 @@ namespace VelocityProto
                     new Criteria(BaseCol.Amount,   CompareOp.NE, "0")
                 }, "SubGI.RoyDueGTGuarInstall");
                 var roysAppliedGt = royDueGtGuarInstall.Copy();
-                roysAppliedGt.DoMath(BaseCol.Amount, MathOp.SETTO, EngineCol.Price1);
-                roysAppliedGt.DoMath(BaseCol.Amount, MathOp.MINUS, BaseCol.Amount);
+                var _ops38 = new MathList
+                {
+                    new MathOperation(BaseCol.Amount, MathOp.SETTO, EngineCol.Price1),
+                    new MathOperation(BaseCol.Amount, MathOp.MINUS, BaseCol.Amount),
+                };
+                roysAppliedGt.DoMath(_ops38);
 
                 var currentRoyApplied = ResultSet.EmptySet();
                 currentRoyApplied.CombineAndRelease(royAppliedLt, roysAppliedGt);
@@ -2404,15 +2585,19 @@ namespace VelocityProto
 
                 var excessToAllocate = royDueGtGuarInstall.Copy();
                 excessToAllocate.SetValue(CustCol.ActivityType, new AlliantEntity(0));
-                excessToAllocate.DoMath(CustCol.ActualPeriod,  MathOp.SETTO, CustCol.OtherPeriod);
-                excessToAllocate.DoMath(BaseCol.Amount,        MathOp.SETTO, EngineCol.Price1);
-                excessToAllocate.DoMath(EngineCol.Rate1,       MathOp.SETTO, "0");
-                excessToAllocate.DoMath(EngineCol.Rate2,       MathOp.SETTO, "0");
-                excessToAllocate.DoMath(EngineCol.Rate3,       MathOp.SETTO, "0");
-                excessToAllocate.DoMath(EngineCol.Price1,      MathOp.SETTO, "0");
-                excessToAllocate.DoMath(BaseCol.Amount2,       MathOp.SETTO, "0");
-                excessToAllocate.DoMath(BaseCol.Units,         MathOp.SETTO, "0");
-                excessToAllocate.DoMath(BaseCol.Units2,        MathOp.SETTO, "0");
+                var _ops39 = new MathList
+                {
+                    new MathOperation(CustCol.ActualPeriod,  MathOp.SETTO, CustCol.OtherPeriod),
+                    new MathOperation(BaseCol.Amount,        MathOp.SETTO, EngineCol.Price1),
+                    new MathOperation(EngineCol.Rate1,       MathOp.SETTO, "0"),
+                    new MathOperation(EngineCol.Rate2,       MathOp.SETTO, "0"),
+                    new MathOperation(EngineCol.Rate3,       MathOp.SETTO, "0"),
+                    new MathOperation(EngineCol.Price1,      MathOp.SETTO, "0"),
+                    new MathOperation(BaseCol.Amount2,       MathOp.SETTO, "0"),
+                    new MathOperation(BaseCol.Units,         MathOp.SETTO, "0"),
+                    new MathOperation(BaseCol.Units2,        MathOp.SETTO, "0"),
+                };
+                excessToAllocate.DoMath(_ops39);
                 int N_ExcessCount = excessToAllocate.Rows;
                 royDueLtGuarInstall.Release();
 
@@ -2428,7 +2613,9 @@ namespace VelocityProto
                 // Allocate excess earning to projected guar install (sort by FromDate DESC).
                 var sortByFromDateDescSet = ResultSet.ZeroSet();
                 sortByFromDateDescSet.DoMath(EngineCol.Comment, MathOp.SETTO, "FromDate DESC");
-                var excessAllocatedToGuarInstall = DS.ExecuteDSP("p_ds_ordered_allocation",
+                // TODO(oa-port): remove parity harness and call OrderedAllocation directly once field data confirms SQL/C# parity.
+                var excessAllocatedToGuarInstall = ResultSetDSPs.OrderedAllocationWithParity(
+                    "RoyaltyLib.excessAllocatedToGuarInstall",
                     projectedGuarInstallToCheck, excessToAllocate, sortByFromDateDescSet);
                 sortByFromDateDescSet.Release();
 
@@ -2441,38 +2628,66 @@ namespace VelocityProto
 
                 // ── Reduce running total for excess earnings: RE, Pmt, Balance ──
                 var excessToAllocateToRe = royDueGtGuarInstall.Copy();
-                excessToAllocateToRe.DoMath(BaseCol.Amount, MathOp.SETTO, EngineCol.Price1);
-                excessToAllocateToRe.DoMath(BaseCol.Amount, MathOp.TIMES, "-1");
+                var _ops40 = new MathList
+                {
+                    new MathOperation(BaseCol.Amount, MathOp.SETTO, EngineCol.Price1),
+                    new MathOperation(BaseCol.Amount, MathOp.TIMES, "-1"),
+                };
+                excessToAllocateToRe.DoMath(_ops40);
                 var baseRunningTotalWReducedRe = ResultSet.EmptySet();
                 baseRunningTotalWReducedRe.CombineAndRelease(currentLoopRtBase.Copy(), excessToAllocateToRe);
-                baseRunningTotalWReducedRe.DoMath(EngineCol.Rate2, MathOp.SETTO, BaseCol.Units);
-                baseRunningTotalWReducedRe.DoMath(BaseCol.Units,   MathOp.SETTO, EngineCol.Rate1);
+                var _ops41 = new MathList
+                {
+                    new MathOperation(EngineCol.Rate2, MathOp.SETTO, BaseCol.Units),
+                    new MathOperation(BaseCol.Units,   MathOp.SETTO, EngineCol.Rate1),
+                };
+                baseRunningTotalWReducedRe.DoMath(_ops41);
 
                 var negExcessAllocated = excessAllocatedToGuarInstall.Copy();
-                negExcessAllocated.DoMath(BaseCol.Units,  MathOp.SETTO, BaseCol.Amount);
-                negExcessAllocated.DoMath(BaseCol.Units,  MathOp.TIMES, "-1");
+                var _ops42 = new MathList
+                {
+                    new MathOperation(BaseCol.Units,  MathOp.SETTO, BaseCol.Amount),
+                    new MathOperation(BaseCol.Units,  MathOp.TIMES, "-1"),
+                };
+                negExcessAllocated.DoMath(_ops42);
                 negExcessAllocated.SetValue(CustCol.ActivityType, ActivityType.Guarantee_Installment);
-                negExcessAllocated.DoMath(EngineCol.FromDate,    MathOp.SETTO, EngineCol.ToDate);
-                negExcessAllocated.DoMath(CustCol.ActualPeriod,  MathOp.SETTO, CustCol.Channel);
-                negExcessAllocated.DoMath(CustCol.OtherPeriod,   MathOp.SETTO, CustCol.Channel);
+                var _ops43 = new MathList
+                {
+                    new MathOperation(EngineCol.FromDate,    MathOp.SETTO, EngineCol.ToDate),
+                    new MathOperation(CustCol.ActualPeriod,  MathOp.SETTO, CustCol.Channel),
+                    new MathOperation(CustCol.OtherPeriod,   MathOp.SETTO, CustCol.Channel),
+                };
+                negExcessAllocated.DoMath(_ops43);
 
-                var negExcessAllocatedWDetails = DS.ExecuteDSP("p_ds_detail_merge",
+                // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+                var negExcessAllocatedWDetails = ResultSetDSPs.DetailMergeWithParity(
+                    "RoyaltyLib.negExcessAllocatedWDetails",
                     negExcessAllocated, currentLoopRtBase);
                 negExcessAllocatedWDetails.DoMath(CustCol.Tier, MathOp.SETTO, "0");
 
                 var baseRunningTotalWReducedREAndPmt = ResultSet.EmptySet();
                 baseRunningTotalWReducedREAndPmt.CombineAndRelease(baseRunningTotalWReducedRe, negExcessAllocatedWDetails);
-                baseRunningTotalWReducedREAndPmt.DoMath(EngineCol.Rate1, MathOp.SETTO, BaseCol.Units);
-                baseRunningTotalWReducedREAndPmt.DoMath(BaseCol.Units,   MathOp.SETTO, EngineCol.Rate2);
-                baseRunningTotalWReducedREAndPmt.DoMath(EngineCol.Rate2, MathOp.SETTO, "0");
+                var _ops44 = new MathList
+                {
+                    new MathOperation(EngineCol.Rate1, MathOp.SETTO, BaseCol.Units),
+                    new MathOperation(BaseCol.Units,   MathOp.SETTO, EngineCol.Rate2),
+                    new MathOperation(EngineCol.Rate2, MathOp.SETTO, "0"),
+                };
+                baseRunningTotalWReducedREAndPmt.DoMath(_ops44);
 
                 var negExcessForBal = negExcessAllocated.Copy();
-                negExcessForBal.DoMath(EngineCol.Rate3, MathOp.SETTO, CustCol.Tier);
-                negExcessForBal.DoMath(CustCol.Tier,    MathOp.SETTO, "0");
+                var _ops45 = new MathList
+                {
+                    new MathOperation(EngineCol.Rate3, MathOp.SETTO, CustCol.Tier),
+                    new MathOperation(CustCol.Tier,    MathOp.SETTO, "0"),
+                };
+                negExcessForBal.DoMath(_ops45);
                 negExcessAllocated.Release();
                 excessAllocatedToGuarInstall.Release();
 
-                var baseRunningTotalWReducedBal = DS.ExecuteDSP("p_ds_detail_merge",
+                // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+                var baseRunningTotalWReducedBal = ResultSetDSPs.DetailMergeWithParity(
+                    "RoyaltyLib.baseRunningTotalWReducedBal",
                     negExcessForBal, baseRunningTotalWReducedREAndPmt);
                 negExcessForBal.Release();
 
@@ -2480,18 +2695,26 @@ namespace VelocityProto
                 baseRunningTotalUpdated.CombineAndRelease(baseRunningTotalWReducedREAndPmt, baseRunningTotalWReducedBal);
 
                 // Recalculate running total + ending balance.
-                var baseRunningTotalRecalculated = DS.ExecuteDSP("p_ds_running_total",
+                // TODO(rt-port): remove parity harness and call RunningTotal directly once field data confirms SQL/C# parity.
+                var baseRunningTotalRecalculated = ResultSetDSPs.RunningTotalWithParity(
+                    "RoyaltyLib.baseRunningTotalRecalculated",
                     baseRunningTotalUpdated, groupByGroupNo, orderByActualPeriodAsc);
                 baseRunningTotalUpdated.Release();
-                baseRunningTotalRecalculated.DoMath(EngineCol.Price1, MathOp.SETTO, BaseCol.Amount2);
-                baseRunningTotalRecalculated.DoMath(EngineCol.Price1, MathOp.MINUS, BaseCol.Units2);
+                var _ops46 = new MathList
+                {
+                    new MathOperation(EngineCol.Price1, MathOp.SETTO, BaseCol.Amount2),
+                    new MathOperation(EngineCol.Price1, MathOp.MINUS, BaseCol.Units2),
+                };
+                baseRunningTotalRecalculated.DoMath(_ops46);
                 var baseRunningTotalRecalculatedWEndBal = baseRunningTotalRecalculated;
 
                 // SummarizeToActualPeriodRate3Price2 (1623) consumes giAndReRunningTotalToProcess.
                 var runningTotalSumm = SummarizeToActualPeriodRate3Price2(giAndReRunningTotalToProcess.Copy());
                 Job.CurrentCalcContext = _ctxSubGuaranteeInstallments;
 
-                var guarInstallMinusRoyDueRecalcdToUse = DS.ExecuteDSP("p_ds_detail_merge",
+                // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+                var guarInstallMinusRoyDueRecalcdToUse = ResultSetDSPs.DetailMergeWithParity(
+                    "RoyaltyLib.guarInstallMinusRoyDueRecalcdToUse",
                     baseRunningTotalRecalculatedWEndBal, runningTotalSumm);
                 runningTotalSumm.Release();
 
@@ -2531,8 +2754,12 @@ namespace VelocityProto
                 var currentEndingBal = royDueLtGuarInstall.Copy();   // released — but we already released!  Use CurrentGuarAndReTotal filter again.
                 currentEndingBal.Release();
                 var royDueLtCopy = currentGuarAndReTotal.GetData(EngineCol.Price1, CompareOp.LT, "0", "SubGI.CurrentEndingBalSrc");
-                royDueLtCopy.DoMath(BaseCol.Amount, MathOp.SETTO, EngineCol.Price1);
-                royDueLtCopy.DoMath(BaseCol.Amount, MathOp.TIMES, "-1");
+                var _ops47 = new MathList
+                {
+                    new MathOperation(BaseCol.Amount, MathOp.SETTO, EngineCol.Price1),
+                    new MathOperation(BaseCol.Amount, MathOp.TIMES, "-1"),
+                };
+                royDueLtCopy.DoMath(_ops47);
                 royDueLtCopy.SetValue(CustCol.ActivityType, ActivityType.Ending_Installment_Balance);
                 var currentEndingBalReal = royDueLtCopy;
 
@@ -2585,12 +2812,16 @@ namespace VelocityProto
             guarInstallMinusRoyDue.Release();
 
             // After loop: zero scratch slots on guarOutput.
-            guarOutput.DoMath(CustCol.Tier,    MathOp.SETTO, "0");
-            guarOutput.DoMath(EngineCol.Rate1, MathOp.SETTO, "0");
-            guarOutput.DoMath(EngineCol.Price1,MathOp.SETTO, "0");
-            guarOutput.DoMath(BaseCol.Amount2, MathOp.SETTO, "0");
-            guarOutput.DoMath(BaseCol.Units,   MathOp.SETTO, "0");
-            guarOutput.DoMath(BaseCol.Units2,  MathOp.SETTO, "0");
+            var _ops48 = new MathList
+            {
+                new MathOperation(CustCol.Tier,    MathOp.SETTO, "0"),
+                new MathOperation(EngineCol.Rate1, MathOp.SETTO, "0"),
+                new MathOperation(EngineCol.Price1,MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Amount2, MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units,   MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units2,  MathOp.SETTO, "0"),
+            };
+            guarOutput.DoMath(_ops48);
 
             // ─── Phase H: Post-loop output decomposition ──────────────────────
             var projectedGuarInstallOutput = guarOutput.GetData(
@@ -2614,7 +2845,9 @@ namespace VelocityProto
             pmtGuarInstallmentToGetDtls.SetValue(CustCol.ActualPeriod, new AlliantEntity(0));
             var guarInstallmentWithDtls = guaranteeInstallmentWGroupAndSeqNo.Copy();
             guarInstallmentWithDtls.SetValue(CustCol.ActivityType, new AlliantEntity(0));
-            var pmtGuarInstallmentItdOutput = DS.ExecuteDSP("p_ds_detail_merge",
+            // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+            var pmtGuarInstallmentItdOutput = ResultSetDSPs.DetailMergeWithParity(
+                "RoyaltyLib.pmtGuarInstallmentItdOutput",
                 pmtGuarInstallmentToGetDtls, guarInstallmentWithDtls);
             pmtGuarInstallmentToGetDtls.Release();
             guarInstallmentWithDtls.Release();
@@ -2655,7 +2888,9 @@ namespace VelocityProto
 
                 var periodsBetActualAndOther = ResultSet.ZeroSet();
                 periodsBetActualAndOther.DoMath(BaseCol.Amount, MathOp.SETTO, "4");   // 4 = "months"
-                var periodCountBetInterval = DS.ExecuteDSP("p_ds_time_between",
+                // TODO(tb-port): remove parity harness and call TimeBetween directly once field data confirms SQL/C# parity.
+                var periodCountBetInterval = ResultSetDSPs.TimeBetweenWithParity(
+                    "RoyaltyLib.periodCountBetInterval",
                     currentStmtPeriod, periodsBetActualAndOther);
                 currentStmtPeriod.Release();
                 periodsBetActualAndOther.Release();
@@ -2668,7 +2903,9 @@ namespace VelocityProto
                 periodsToShift.DoMath(EngineCol.Rate1, MathOp.SETTO, N_PeriodsToShift.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
                 var periodsForSmtBeg = periodsForEndBal.Copy();
-                var stmtBegBalPeriod = DS.ExecuteDSP("p_ds_periods_from",
+                // TODO(pf-port): remove parity harness and call PeriodsFrom directly once field data confirms SQL/C# parity.
+                var stmtBegBalPeriod = ResultSetDSPs.PeriodsFromWithParity(
+                    "RoyaltyLib.stmtBegBalPeriod",
                     periodsForSmtBeg, periodsToShift);
                 periodsForSmtBeg.Release();
                 periodsToShift.Release();
@@ -2707,7 +2944,9 @@ namespace VelocityProto
             var guarInstallmentTerms = guaranteeInstallmentWGroupAndSeqNo.Copy();
             guarInstallmentTerms.SetValue("FromDate", "");   // F_NULL_DATE() marker
             guarInstallmentTerms.DoMath(EngineCol.Rate3, MathOp.SETTO, "0");
-            var begAndEndBalOutput = DS.ExecuteDSP("p_ds_detail_merge",
+            // TODO(dm-port): remove parity harness and call DetailMerge directly once field data confirms SQL/C# parity.
+            var begAndEndBalOutput = ResultSetDSPs.DetailMergeWithParity(
+                "RoyaltyLib.begAndEndBalOutput",
                 validBegAndEndBalGetDtls, guarInstallmentTerms);
             validBegAndEndBalGetDtls.Release();
             guarInstallmentTerms.Release();
@@ -2735,8 +2974,12 @@ namespace VelocityProto
                 begAndEndBalOutput,
                 begBalCurrentOutput);
             output.CombineAndRelease(guaranteeInstallmentItdOutput);
-            output.DoMath(EngineCol.Rate3,  MathOp.SETTO, "0");
-            output.DoMath(EngineCol.Price2, MathOp.SETTO, "0");
+            var _ops49 = new MathList
+            {
+                new MathOperation(EngineCol.Rate3,  MathOp.SETTO, "0"),
+                new MathOperation(EngineCol.Price2, MathOp.SETTO, "0"),
+            };
+            output.DoMath(_ops49);
 
             // Cleanup of held-alive intermediates.
             guarOutput.Release();
@@ -2843,11 +3086,15 @@ namespace VelocityProto
                 new Criteria(CustCol.ActivityType, CompareOp.EQ,    ActivityType.Royalties_Earned),
                 new Criteria(CustCol.ActualPeriod, ListOp.INLIST,   (EntityList)window)
             }, "SubRes.RoyaltiesWithinWindowPeriods");
-            // Stash ActualPeriod in TransType for later restore (DealScript line 46).
-            royaltiesWithinWindowPeriods.DoMath(CustCol.TransType, MathOp.SETTO, CustCol.ActualPeriod);
+            // Stash ActualPeriod in ScratchInt1 for later restore (DealScript line 46).
+            // Legacy DealScript stashed into TransType (UDKey3), which is a type
+            // mismatch (Period sid → UDKey slot) that the engine now blocks.
+            royaltiesWithinWindowPeriods.DoMath(EngineCol.ScratchInt1, MathOp.SETTO, CustCol.ActualPeriod);
 
             // ─── Phase D: CurrentStmtInterval (period-to-period-type-period) ─
-            var currentStmtInterval = DS.ExecuteDSP("p_ds_period_to_period_type_period",
+            // TODO(pttp-port): remove parity harness and call PeriodToPeriodTypePeriod directly once field data confirms SQL/C# parity.
+            var currentStmtInterval = ResultSetDSPs.PeriodToPeriodTypePeriodWithParity(
+                "RoyaltyLib.currentStmtInterval",
                 royaltiesWithinWindowPeriods, stmtIntervalPeriodType);
             royaltiesWithinWindowPeriods.Release();
             currentStmtInterval.DoMath(CustCol.ActualPeriod, MathOp.SETTO, CustCol.OtherPeriod);
@@ -2863,11 +3110,16 @@ namespace VelocityProto
             for (int N_PeriodCount = 1; N_PeriodCount <= N_LiqPeriod; N_PeriodCount++)
             {
                 // Shift currentLoop forward 1 base-period.
-                var currentLoopToUse = DS.ExecuteDSP("p_ds_periods_from", currentLoop, shiftOnePeriod);
+                // TODO(pf-port): remove parity harness and call PeriodsFrom directly once field data confirms SQL/C# parity.
+                var currentLoopToUse = ResultSetDSPs.PeriodsFromWithParity(
+                    "RoyaltyLib.currentLoopToUse.periodsFrom",
+                    currentLoop, shiftOnePeriod);
                 currentLoop.Release();
 
                 // Re-anchor to statement interval start.
-                var oneLiqPeriod = DS.ExecuteDSP("p_ds_period_to_period_type_period",
+                // TODO(pttp-port): remove parity harness and call PeriodToPeriodTypePeriod directly once field data confirms SQL/C# parity.
+                var oneLiqPeriod = ResultSetDSPs.PeriodToPeriodTypePeriodWithParity(
+                    "RoyaltyLib.oneLiqPeriod",
                     currentLoopToUse, stmtIntervalPeriodType);
                 currentLoopToUse.Release();
                 oneLiqPeriod.DoMath(CustCol.ActualPeriod, MathOp.SETTO, CustCol.OtherPeriod);
@@ -2882,18 +3134,21 @@ namespace VelocityProto
             shiftOnePeriod.Release();
             stmtIntervalPeriodType.Release();
 
-            // ─── Phase F: Restore ActualPeriod from TransType scratch ────────
-            liquidationPeriod.DoMath(CustCol.ActualPeriod, MathOp.SETTO, CustCol.TransType);
+            // ─── Phase F: Restore ActualPeriod from ScratchInt1 stash ────────
+            liquidationPeriod.DoMath(CustCol.ActualPeriod, MathOp.SETTO, EngineCol.ScratchInt1);
 
             // ─── Phase G: Reserve rate -> ReservesTakenWithinWindow ──────────
             var liqPeriod = liquidationPeriod;
             liqPeriod.SetValue(CustCol.TransType, TransType.ITD);
 
             var royWithReserveRate = liqPeriod;
-            royWithReserveRate.DoMath(EngineCol.Rate2, MathOp.SETTO, ContractUDF.ReserveRate);
-            // ReservesAmount = -1 * Amount * Rate2 -> Amount.
-            royWithReserveRate.DoMath(BaseCol.Amount, MathOp.TIMES, EngineCol.Rate2);
-            royWithReserveRate.DoMath(BaseCol.Amount, MathOp.TIMES, "-1");
+            var _ops50 = new MathList
+            {
+                new MathOperation(EngineCol.Rate2, MathOp.SETTO, ContractUDF.ReserveRate),
+                new MathOperation(BaseCol.Amount, MathOp.TIMES, EngineCol.Rate2),
+                new MathOperation(BaseCol.Amount, MathOp.TIMES, "-1"),
+            };
+            royWithReserveRate.DoMath(_ops50);
 
             var roundedReservesAmount = CommonLib.RoundAmountsTo2DecAndUnitsTo0Dec(royWithReserveRate);
             Job.CurrentCalcContext = _ctxSubReserves;
@@ -2921,9 +3176,15 @@ namespace VelocityProto
             reservesLiquidated.DoMath(BaseCol.Amount, MathOp.TIMES, "-1");
             var reservesLiquidatedItd = reservesLiquidated;
             reservesLiquidatedItd.SetValue(CustCol.ActivityType, ActivityType.Reserves_Liquidated);
-            // Save ActualPeriod -> TransType, then ActualPeriod = OtherPeriod.
-            reservesLiquidatedItd.DoMath(CustCol.TransType,    MathOp.SETTO, CustCol.ActualPeriod);
-            reservesLiquidatedItd.DoMath(CustCol.ActualPeriod, MathOp.SETTO, CustCol.OtherPeriod);
+            // Save ActualPeriod -> ScratchInt1, then ActualPeriod = OtherPeriod.
+            // Legacy DealScript stashed into TransType (UDKey3), which is a type
+            // mismatch (Period sid → UDKey slot) that the engine now blocks.
+            var _ops51 = new MathList
+            {
+                new MathOperation(EngineCol.ScratchInt1, MathOp.SETTO, CustCol.ActualPeriod),
+                new MathOperation(CustCol.ActualPeriod,  MathOp.SETTO, CustCol.OtherPeriod),
+            };
+            reservesLiquidatedItd.DoMath(_ops51);
 
             var reservesLiquidatedAndAdjsItd = ResultSet.EmptySet();
             reservesLiquidatedAndAdjsItd.CombineAndRelease(posAdjReservesItd, reservesLiquidatedItd.Copy());
@@ -2960,10 +3221,14 @@ namespace VelocityProto
             // Split by OtherPeriod = Unspecified vs not.
             var liquidatedFinalReserves = finalReservesItd.GetData(
                 CustCol.OtherPeriod, CompareOp.EQ, "0", "SubRes.LiquidatedFinalReserves");
-            // Restore ActualPeriod from TransType scratch.  Mark with Units2=55 sentinel.
-            liquidatedFinalReserves.DoMath(CustCol.OtherPeriod, MathOp.SETTO, CustCol.ActualPeriod);
-            liquidatedFinalReserves.DoMath(CustCol.ActualPeriod, MathOp.SETTO, CustCol.TransType);
-            liquidatedFinalReserves.DoMath(BaseCol.Units2, MathOp.SETTO, "55");
+            // Restore ActualPeriod from ScratchInt1 stash.  Mark with Units2=55 sentinel.
+            var _ops52 = new MathList
+            {
+                new MathOperation(CustCol.OtherPeriod,  MathOp.SETTO, CustCol.ActualPeriod),
+                new MathOperation(CustCol.ActualPeriod, MathOp.SETTO, EngineCol.ScratchInt1),
+                new MathOperation(BaseCol.Units2,       MathOp.SETTO, "55"),
+            };
+            liquidatedFinalReserves.DoMath(_ops52);
             var liquidatedFinalReservesItd = liquidatedFinalReserves.Copy();
             liquidatedFinalReservesItd.SetValue(CustCol.TransType, TransType.ITD);
             liquidatedFinalReserves.Release();
@@ -2986,8 +3251,12 @@ namespace VelocityProto
 
             var liquidatedFinalReservesNonZeros = takenLiquidatedFinalReservesNonZeros.GetData(
                 BaseCol.Units2, CompareOp.EQ, "55", "SubRes.LiquidatedFinalReservesNonZeros");
-            liquidatedFinalReservesNonZeros.DoMath(CustCol.ActualPeriod, MathOp.SETTO, CustCol.OtherPeriod);
-            liquidatedFinalReservesNonZeros.DoMath(BaseCol.Units2, MathOp.SETTO, "0");
+            var _ops53 = new MathList
+            {
+                new MathOperation(CustCol.ActualPeriod, MathOp.SETTO, CustCol.OtherPeriod),
+                new MathOperation(BaseCol.Units2, MathOp.SETTO, "0"),
+            };
+            liquidatedFinalReservesNonZeros.DoMath(_ops53);
             liquidatedFinalReservesNonZeros.SetEntity(CustCol.OtherPeriod, new AlliantEntity(0));
 
             var takenFinalReservesNonZeros = takenLiquidatedFinalReservesNonZeros.GetData(
@@ -3097,8 +3366,12 @@ namespace VelocityProto
             adjsToRecoupe.CombineAndRelease(priorStmtFinal, recoupableAdvCurrent);
 
             var nonZeroAdjsToRecoupe = adjsToRecoupe.GetData(BaseCol.Amount, CompareOp.NE, "0", "SubAdv.NonZeroAdjsToRecoupe");
-            nonZeroAdjsToRecoupe.DoMath(BaseCol.Units2, MathOp.SETTO, BaseCol.Amount);
-            nonZeroAdjsToRecoupe.DoMath(BaseCol.Amount, MathOp.SETTO, "0");
+            var _ops54 = new MathList
+            {
+                new MathOperation(BaseCol.Units2, MathOp.SETTO, BaseCol.Amount),
+                new MathOperation(BaseCol.Amount, MathOp.SETTO, "0"),
+            };
+            nonZeroAdjsToRecoupe.DoMath(_ops54);
 
             // ─── Phase D: GroupNumbering writes seq into Tier (UDKey14) ──────
             // Sort: RecoupmentGroup ASC, OtherPeriod ASC.
@@ -3114,10 +3387,14 @@ namespace VelocityProto
             // AdjsWOrderNo: Tier (UDKey14) = sequenceNumber + 1 (DealScript: Amount + 1 -> Tier).
             // GroupNumbering writes the seq # into Amount; we move it to Tier and restore Amount from Units2.
             var adjsWOrderNo = adjsWZeroOrderNo;
-            adjsWOrderNo.DoMath(CustCol.Tier,     MathOp.SETTO, BaseCol.Amount);
-            adjsWOrderNo.DoMath(CustCol.Tier,     MathOp.PLUS,  "1");
-            adjsWOrderNo.DoMath(BaseCol.Amount,   MathOp.SETTO, BaseCol.Units2);
-            adjsWOrderNo.DoMath(BaseCol.Units2,   MathOp.SETTO, "0");
+            var _ops55 = new MathList
+            {
+                new MathOperation(CustCol.Tier,     MathOp.SETTO, BaseCol.Amount),
+                new MathOperation(CustCol.Tier,     MathOp.PLUS,  "1"),
+                new MathOperation(BaseCol.Amount,   MathOp.SETTO, BaseCol.Units2),
+                new MathOperation(BaseCol.Units2,   MathOp.SETTO, "0"),
+            };
+            adjsWOrderNo.DoMath(_ops55);
 
             // ─── Phase E: CurrentStmtRoyEarned ───────────────────────────────
             var forRecoupment = ResultSet.EmptySet();
@@ -3135,16 +3412,24 @@ namespace VelocityProto
             var currentStmtRoyEarned = ResultSet.Subtract(itdStmtRoyEarned, priorStmtRoyEarned, "SubAdv.CurrentStmtRoyEarned");
             itdStmtRoyEarned.Release();
             priorStmtRoyEarned.Release();
-            currentStmtRoyEarned.DoMath(EngineCol.Rate2, MathOp.SETTO, "0");
-            currentStmtRoyEarned.DoMath(EngineCol.Rate3, MathOp.SETTO, "0");
+            var _ops56 = new MathList
+            {
+                new MathOperation(EngineCol.Rate2, MathOp.SETTO, "0"),
+                new MathOperation(EngineCol.Rate3, MathOp.SETTO, "0"),
+            };
+            currentStmtRoyEarned.DoMath(_ops56);
 
             // CurrentStmtRoyEarnedSumm: clear ActivityType + OtherPeriod, zero scratches.
             var currentStmtRoyEarnedSumm = currentStmtRoyEarned;
             currentStmtRoyEarnedSumm.SetValue(CustCol.ActivityType, ActivityType.Unspecified);
             currentStmtRoyEarnedSumm.SetEntity(CustCol.OtherPeriod, new AlliantEntity(0));
-            currentStmtRoyEarnedSumm.DoMath(BaseCol.Amount2, MathOp.SETTO, "0");
-            currentStmtRoyEarnedSumm.DoMath(BaseCol.Units,   MathOp.SETTO, "0");
-            currentStmtRoyEarnedSumm.DoMath(BaseCol.Units2,  MathOp.SETTO, "0");
+            var _ops57 = new MathList
+            {
+                new MathOperation(BaseCol.Amount2, MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units,   MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units2,  MathOp.SETTO, "0"),
+            };
+            currentStmtRoyEarnedSumm.DoMath(_ops57);
 
             var currentStmtRoyEarnedNonZeros = currentStmtRoyEarnedSumm.GetData(
                 BaseCol.Amount, CompareOp.NE, "0", "SubAdv.CurrentStmtRoyEarnedNonZeros");
@@ -3202,7 +3487,8 @@ namespace VelocityProto
                 Job.CurrentCalcContext = _ctxSubAdvances;
 
                 // RecoupmentDtls = ordered_allocation(posRoyCurrent, aSingleAdvance, processBy).
-                var recoupmentDtls = DS.ExecuteDSP("p_ds_ordered_allocation",
+                // TODO(oa-port): remove parity harness and call OrderedAllocation directly once field data confirms SQL/C# parity.
+                var recoupmentDtls = ResultSetDSPs.OrderedAllocationWithParity("RoyaltyLib.recoupmentDtls",
                     posRoyCurrent, aSingleAdvance, processBy);
                 aSingleAdvance.Release();
                 if (N_RoyCurrent > 0m) royRecGroupCurrent.Release();
@@ -3252,13 +3538,18 @@ namespace VelocityProto
 
             var processByForFinal = ResultSet.ZeroSet();
             processByForFinal.SetValue(CustCol.Comment1, "RecoupmentGroup ASC, ActualPeriod ASC, Catalog ASC");
-            var adjToUse = DS.ExecuteDSP("p_ds_ordered_allocation",
+            // TODO(oa-port): remove parity harness and call OrderedAllocation directly once field data confirms SQL/C# parity.
+            var adjToUse = ResultSetDSPs.OrderedAllocationWithParity("RoyaltyLib.adjToUse",
                 adjsWOrderNo, nonZeroRecoupment, processByForFinal);
             adjsWOrderNo.Release();
             nonZeroRecoupment.Release();
             processByForFinal.Release();
-            adjToUse.DoMath(CustCol.Tier,    MathOp.SETTO, "0");
-            adjToUse.DoMath(BaseCol.Amount2, MathOp.SETTO, "0");
+            var _ops58 = new MathList
+            {
+                new MathOperation(CustCol.Tier,    MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Amount2, MathOp.SETTO, "0"),
+            };
+            adjToUse.DoMath(_ops58);
 
             var remainingBalance = ResultSet.Subtract(adjsToRecoupe, adjToUse, "SubAdv.RemainingBalance");
             adjsToRecoupe.Release();
@@ -3419,7 +3710,9 @@ namespace VelocityProto
                 "SubDedCap.DedsAndReturns");
             var salesAndDeds = ResultSet.EmptySet();
             salesAndDeds.CombineAndRelease(salesOnly.Copy(), dedsAndReturns);
-            var populateImportOtherPeriod = DS.ExecuteDSP("p_ds_period_to_period_type_period",
+            // TODO(pttp-port): remove parity harness and call PeriodToPeriodTypePeriod directly once field data confirms SQL/C# parity.
+            var populateImportOtherPeriod = ResultSetDSPs.PeriodToPeriodTypePeriodWithParity(
+                "RoyaltyLib.populateImportOtherPeriod",
                 salesAndDeds, dedPeriodTypeString);
             salesAndDeds.Release();
             dedPeriodTypeString.Release();
@@ -3475,18 +3768,12 @@ namespace VelocityProto
             ResultSet deductionsNeedsCap = N_NoCapNeeded == 0 ? notNullCaps : ResultSet.EmptySet();
             if (N_NoCapNeeded != 0) notNullCaps.Release();
 
-            // ─── Phase D: Lookup tier-by-tier caps via DSP, then detail-merge ─
-            // CapPctOnContract: ZeroSet with Comment1="DeductionCapPercent", AltComment="Contract"
-            var capPctOnContract = ResultSet.ZeroSet();
-            capPctOnContract.SetValue(CustCol.Comment1, "DeductionCapPercent");
-            capPctOnContract.DoMath(EngineCol.AltComment, MathOp.SETTO, "Contract");
-            // TierToRetrieve: ZeroSet with Comment1="UDKey14"
-            var tierToRetrieve = ResultSet.ZeroSet();
-            tierToRetrieve.SetValue(CustCol.Comment1, "UDKey14");
-
-            var tierPctDetails = DS.ExecuteDSP("p_ds_get_lookup_column_values", capPctOnContract, tierToRetrieve);
-            capPctOnContract.Release();
-            // Note: tierToRetrieve consumed by next DSP call too; need a copy for this one.
+            // ─── Phase D: Lookup tier-by-tier caps, then detail-merge ─
+            // Project UDKey14 selections from DeductionCapPercent Contract-owned lookup UDF.
+            // TODO(glcv-port): remove parity harness and call GetLookupColumnValues directly once field data confirms SQL/C# parity.
+            var tierPctDetails = ResultSetDSPs.GetLookupColumnValuesWithParity(
+                "RoyaltyLib.tierPctDetails",
+                IndexableColumn.Contract_sid, "DeductionCapPercent", IndexableColumn.Udkey_14_sid);
 
             var salesWithPctCapGroup = ResultSetDSPs.DetailMerge(populateSalesOtherPeriod, tierPctDetails);
             tierPctDetails.Release();
@@ -3495,13 +3782,11 @@ namespace VelocityProto
             var dedCapPctAmount = salesWithPctCapGroup;
             dedCapPctAmount.DoMath(BaseCol.Amount, MathOp.TIMES, ContractUDF.DeductionCapPercent);
 
-            // CapAmountOnContract: same shape but for DeductionCapAmount UDF.
-            var capAmountOnContract = ResultSet.ZeroSet();
-            capAmountOnContract.SetValue(CustCol.Comment1, "DeductionCapAmount");
-            capAmountOnContract.DoMath(EngineCol.AltComment, MathOp.SETTO, "Contract");
-            var tierAmtDetails = DS.ExecuteDSP("p_ds_get_lookup_column_values", capAmountOnContract, tierToRetrieve);
-            capAmountOnContract.Release();
-            tierToRetrieve.Release();
+            // Same shape but for DeductionCapAmount UDF.
+            // TODO(glcv-port): remove parity harness and call GetLookupColumnValues directly once field data confirms SQL/C# parity.
+            var tierAmtDetails = ResultSetDSPs.GetLookupColumnValuesWithParity(
+                "RoyaltyLib.tierAmtDetails",
+                IndexableColumn.Contract_sid, "DeductionCapAmount", IndexableColumn.Udkey_14_sid);
 
             var salesWithAmtCapGroup = ResultSetDSPs.DetailMerge(populateSalesOtherPeriod.Copy(), tierAmtDetails);
             tierAmtDetails.Release();
@@ -3528,8 +3813,12 @@ namespace VelocityProto
             var summarizeSalesCap = CommonLib.SummarizeToOtherPeriodTier(roundedCapAmount);
             Job.CurrentCalcContext = _ctxSubDeductionCap;
             var zeroSales = summarizeSalesCap.Copy();
-            zeroSales.DoMath(BaseCol.Amount, MathOp.SETTO, "0");
-            zeroSales.DoMath(BaseCol.Units,  MathOp.SETTO, "0");
+            var _ops59 = new MathList
+            {
+                new MathOperation(BaseCol.Amount, MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units,  MathOp.SETTO, "0"),
+            };
+            zeroSales.DoMath(_ops59);
 
             var summarizeDeduction = CommonLib.SummarizeToOtherPeriodTier(deductionsNeedsCap);
             Job.CurrentCalcContext = _ctxSubDeductionCap;
@@ -3557,18 +3846,27 @@ namespace VelocityProto
             // ─── Phase G: Ordered allocation ─────────────────────────────────
             var processBy = ResultSet.ZeroSet();
             processBy.SetValue(CustCol.Comment1, "OtherPeriod ASC, Tier ASC, ActualPeriod ASC");
-            var deductionsOA = DS.ExecuteDSP("p_ds_ordered_allocation",
+            // TODO(oa-port): remove parity harness and call OrderedAllocation directly once field data confirms SQL/C# parity.
+            var deductionsOA = ResultSetDSPs.OrderedAllocationWithParity("RoyaltyLib.deductionsOA",
                 deductionsNeedsCap, allowedDeduction, processBy);
             allowedDeduction.Release();
-            deductionsOA.DoMath(BaseCol.Amount2, MathOp.SETTO, "0");
-            deductionsOA.DoMath(BaseCol.Units,   MathOp.SETTO, "0");
+            var _ops60 = new MathList
+            {
+                new MathOperation(BaseCol.Amount2, MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units,   MathOp.SETTO, "0"),
+            };
+            deductionsOA.DoMath(_ops60);
 
             // MoveAmountToAmount2Deds: stash original DeductionsNeedsCap.Amount into Amount2,
             // then zero Amount.  This is the "remaining" pre-allocation amount; combined into
             // PosDedOA below to produce the full negated output.
             var moveAmountToAmount2Deds = deductionsNeedsCap.Copy();
-            moveAmountToAmount2Deds.DoMath(BaseCol.Amount2, MathOp.SETTO, BaseCol.Amount);
-            moveAmountToAmount2Deds.DoMath(BaseCol.Amount,  MathOp.SETTO, "0");
+            var _ops61 = new MathList
+            {
+                new MathOperation(BaseCol.Amount2, MathOp.SETTO, BaseCol.Amount),
+                new MathOperation(BaseCol.Amount,  MathOp.SETTO, "0"),
+            };
+            moveAmountToAmount2Deds.DoMath(_ops61);
 
             var posDedOA = ResultSet.EmptySet();
             posDedOA.CombineAndRelease(deductionsOA.Copy(), deductionsNoCap, deductionsNoCapWithZeroTier, moveAmountToAmount2Deds);
@@ -3683,9 +3981,13 @@ namespace VelocityProto
             }, "SubPmtDueTax.CurrentPaymentInitial");
             currentPaymentInitial.SetEntity("ContractedParty", L_ContractedParties[0]);
             var currentPayment = currentPaymentInitial;
-            currentPayment.DoMath(BaseCol.Amount2, MathOp.SETTO, "0");
-            currentPayment.DoMath(BaseCol.Units,   MathOp.SETTO, "0");
-            currentPayment.DoMath(BaseCol.Units2,  MathOp.SETTO, "0");
+            var _ops62 = new MathList
+            {
+                new MathOperation(BaseCol.Amount2, MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units,   MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units2,  MathOp.SETTO, "0"),
+            };
+            currentPayment.DoMath(_ops62);
 
             // PayRecipients fan-out: ContractedParty -> PaymentRecipient by Period, RecipientRate=Rate1.
             var balanceDueByRecipientSet = currentPayment.PayRecipients(
@@ -3717,16 +4019,24 @@ namespace VelocityProto
             var negativePayment = totaAndPaymentRecipientTotal.GetData(
                 BaseCol.Amount2, CompareOp.LT, "0", "SubPmtDueTax.NegativePayment");
             negativePayment.SetValue(CustCol.ActivityType, ActivityType.Balance_Due_Carry_Forward);
-            negativePayment.DoMath(EngineCol.AltComment, MathOp.SETTO, "Negative Payment at Recipient");
-            negativePayment.DoMath(BaseCol.Amount2, MathOp.SETTO, "0");
+            var _ops63 = new MathList
+            {
+                new MathOperation(EngineCol.AltComment, MathOp.SETTO, "Negative Payment at Recipient"),
+                new MathOperation(BaseCol.Amount2, MathOp.SETTO, "0"),
+            };
+            negativePayment.DoMath(_ops63);
             var negativePaymentOutput = negativePayment;
 
             // PositivePayment: Amount2 > 0 -> read PaymentOnHoldFlag from PaymentRecipient.
             var positivePayment = totaAndPaymentRecipientTotal.GetData(
                 BaseCol.Amount2, CompareOp.GT, "0", "SubPmtDueTax.PositivePayment");
             totaAndPaymentRecipientTotal.Release();
-            positivePayment.DoMath(EngineCol.AltComment, MathOp.SETTO, PaymentRecipientUDF.PaymentOnHoldFlag);
-            positivePayment.DoMath(BaseCol.Amount2,      MathOp.SETTO, "0");
+            var _ops64 = new MathList
+            {
+                new MathOperation(EngineCol.AltComment, MathOp.SETTO, PaymentRecipientUDF.PaymentOnHoldFlag),
+                new MathOperation(BaseCol.Amount2,      MathOp.SETTO, "0"),
+            };
+            positivePayment.DoMath(_ops64);
 
             // HoldPayment = filter where AltComment="Yes", then re-stamp AltComment with hold-reason.
             var holdPayment = positivePayment.GetData(EngineCol.AltComment, CompareOp.EQ, "Yes", "SubPmtDueTax.HoldPayment");
@@ -3742,15 +4052,16 @@ namespace VelocityProto
             // ─── Phase E: Currency conversion ─────────────────────────────────
             // MoveCalcCurrencyToSourceCurrency: Comment="UDKey18", AltComment="UDKey17"
             var moveCalcCurrencyToSourceCurrency = ResultSet.ZeroSet();
-            moveCalcCurrencyToSourceCurrency.DoMath(EngineCol.Comment,    MathOp.SETTO, "UDKey18");
-            moveCalcCurrencyToSourceCurrency.DoMath(EngineCol.AltComment, MathOp.SETTO, "UDKey17");
+            moveCalcCurrencyToSourceCurrency.SetTextValue(EngineCol.Comment,    "UDKey18");
+            moveCalcCurrencyToSourceCurrency.SetTextValue(EngineCol.AltComment, "UDKey17");
             var noValidSourceCurrency = ResultSet.EmptySet();
 
             // CalcCurrency = ZeroSet with UDKey18 = ContractUDF.DealCurrency
             var calcCurrency = ResultSet.ZeroSet();
             calcCurrency.DoMath(CustCol.CalculationCurrency, MathOp.SETTO, ContractUDF.DealCurrency);
             // p_ds_move_udkey: copies CalcCurrency col -> SourceCurrency col.
-            var calcCurrencyMovedToSourceCurrency = DS.ExecuteDSP("p_ds_move_udkey",
+            // TODO(mu-port): remove parity harness and call MoveUdkey directly once field data confirms SQL/C# parity.
+            var calcCurrencyMovedToSourceCurrency = ResultSetDSPs.MoveUdkeyWithParity("RoyaltyLib.calcCurrencyMovedToSourceCurrency",
                 calcCurrency, moveCalcCurrencyToSourceCurrency, noValidSourceCurrency);
             calcCurrency.Release();
             moveCalcCurrencyToSourceCurrency.Release();
@@ -3762,9 +4073,13 @@ namespace VelocityProto
             // CalculationCurrency from PaymentRecipientUDF.PaymentCurrency, OtherPeriod=ActualPeriod, Rate2=0.
             var noHeldPaymentWithSourceCurrency = notHeldPayment;
             noHeldPaymentWithSourceCurrency.SetEntity("SourceCurrency", L_SourceCurrency[0]);
-            noHeldPaymentWithSourceCurrency.DoMath(CustCol.CalculationCurrency, MathOp.SETTO, PaymentRecipientUDF.PaymentCurrency);
-            noHeldPaymentWithSourceCurrency.DoMath(CustCol.OtherPeriod,         MathOp.SETTO, CustCol.ActualPeriod);
-            noHeldPaymentWithSourceCurrency.DoMath(EngineCol.Rate2,             MathOp.SETTO, "0");
+            var _ops65 = new MathList
+            {
+                new MathOperation(CustCol.CalculationCurrency, MathOp.SETTO, PaymentRecipientUDF.PaymentCurrency),
+                new MathOperation(CustCol.OtherPeriod,         MathOp.SETTO, CustCol.ActualPeriod),
+                new MathOperation(EngineCol.Rate2,             MathOp.SETTO, "0"),
+            };
+            noHeldPaymentWithSourceCurrency.DoMath(_ops65);
 
             // PaymentWithRate: ActualPeriod = current calc period; Rate2 = SourceCurrencyUDF.ExchangeRate
             var paymentWithRate = noHeldPaymentWithSourceCurrency;
@@ -3781,11 +4096,13 @@ namespace VelocityProto
             var sourceCurrencyError = ResultSet.ZeroSet();
             sourceCurrencyError.SetEntity("SourceCurrency", L_SourceCurrency[0]);
             var idToComment1 = ResultSet.ZeroSet();
-            idToComment1.DoMath(EngineCol.Comment,    MathOp.SETTO, "-");
-            idToComment1.DoMath(EngineCol.AltComment, MathOp.SETTO, "UDKey17");
+            // UDKeyToText reads Comment=source-UDKey-col-name, AltComment=delimiter (per DSP spec).
+            idToComment1.DoMath(EngineCol.AltComment, MathOp.SETTO, "-");
+            idToComment1.SetTextValue(EngineCol.Comment,   "UDKey17");
             idToComment1.DoMath(EngineCol.Rate1,      MathOp.SETTO, "0");   // 0 = move to Comment1
             idToComment1.DoMath(EngineCol.Rate2,      MathOp.SETTO, "1");   // 1 = use ID
-            DS.ExecuteDSP("p_ds_udkey_to_text", sourceCurrencyError, idToComment1).Release();
+            // Fix: SQL DSP silently no-op'd; C# wrapper mutates IS1 in-place as intended.
+            ResultSetDSPs.UDKeyToText(sourceCurrencyError, idToComment1);
             idToComment1.Release();
             var dspError = sourceCurrencyError;
             dspError.DoMath(EngineCol.AltComment, MathOp.SETTO, "Exchange Rate not found for Source Currency.");
@@ -3828,8 +4145,12 @@ namespace VelocityProto
             // Amount2 < <a fixed threshold> -- but Units varies per row.  Best: split the set
             // into "Amount2 - Units < 0" rows by computing a temp column.
             // Simpler -- use a scratch Rate3 = Amount2 - Units; then GetData where Rate3 < 0.
-            convertedPaymentWithTotal.DoMath(EngineCol.Rate3, MathOp.SETTO, BaseCol.Amount2);
-            convertedPaymentWithTotal.DoMath(EngineCol.Rate3, MathOp.MINUS, BaseCol.Units);
+            var _ops66 = new MathList
+            {
+                new MathOperation(EngineCol.Rate3, MathOp.SETTO, BaseCol.Amount2),
+                new MathOperation(EngineCol.Rate3, MathOp.MINUS, BaseCol.Units),
+            };
+            convertedPaymentWithTotal.DoMath(_ops66);
             var belowMinimumn = convertedPaymentWithTotal.GetData(EngineCol.Rate3, CompareOp.LT, "0", "SubPmtDueTax.BelowMin");
             convertedPaymentWithTotal.DoMath(EngineCol.Rate3, MathOp.SETTO, "0");
 
@@ -3838,14 +4159,22 @@ namespace VelocityProto
             // BelowMinimumOutput: put back unconverted Amount (Price1), restore ActualPeriod (OtherPeriod),
             // re-stamp ActivityType=Balance_Due_Carry_Forward, AltComment="Payment Below Minimum",
             // OtherPeriod=Unspecified, CalculationCurrency=DealCurrency, Price1/Amount2=0.
-            belowMinimumn.DoMath(BaseCol.Amount,         MathOp.SETTO, EngineCol.Price1);
-            belowMinimumn.DoMath(CustCol.ActualPeriod,   MathOp.SETTO, CustCol.OtherPeriod);
+            var _ops67 = new MathList
+            {
+                new MathOperation(BaseCol.Amount,         MathOp.SETTO, EngineCol.Price1),
+                new MathOperation(CustCol.ActualPeriod,   MathOp.SETTO, CustCol.OtherPeriod),
+            };
+            belowMinimumn.DoMath(_ops67);
             belowMinimumn.SetValue(CustCol.ActivityType, ActivityType.Balance_Due_Carry_Forward);
             belowMinimumn.DoMath(EngineCol.AltComment,   MathOp.SETTO, "Payment Below Minimum");
             belowMinimumn.SetEntity(CustCol.OtherPeriod, new AlliantEntity(0));
-            belowMinimumn.DoMath(CustCol.CalculationCurrency, MathOp.SETTO, ContractUDF.DealCurrency);
-            belowMinimumn.DoMath(EngineCol.Price1,       MathOp.SETTO, "0");
-            belowMinimumn.DoMath(BaseCol.Amount2,        MathOp.SETTO, "0");
+            var _ops68 = new MathList
+            {
+                new MathOperation(CustCol.CalculationCurrency, MathOp.SETTO, ContractUDF.DealCurrency),
+                new MathOperation(EngineCol.Price1,       MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Amount2,        MathOp.SETTO, "0"),
+            };
+            belowMinimumn.DoMath(_ops68);
             var belowMinimumOutput = belowMinimumn;
 
             // BalanceDue / AboveMin: rows whose PaymentRecipient is NOT in L_BelowMinPaymentRecipient.
@@ -3853,10 +4182,14 @@ namespace VelocityProto
             var balanceDue = convertedPaymentWithTotal.GetData(
                 new ContactCol("PaymentRecipient"), ListOp.NOTINLIST, (EntityList)L_BelowMinPaymentRecipient,
                 "SubPmtDueTax.BalanceDue");
-            balanceDue.DoMath(BaseCol.Amount,       MathOp.SETTO, EngineCol.Price1);
-            balanceDue.DoMath(CustCol.ActualPeriod, MathOp.SETTO, CustCol.OtherPeriod);
-            balanceDue.DoMath(EngineCol.Price1,     MathOp.SETTO, "0");
-            balanceDue.DoMath(BaseCol.Amount2,      MathOp.SETTO, "0");
+            var _ops69 = new MathList
+            {
+                new MathOperation(BaseCol.Amount,       MathOp.SETTO, EngineCol.Price1),
+                new MathOperation(CustCol.ActualPeriod, MathOp.SETTO, CustCol.OtherPeriod),
+                new MathOperation(EngineCol.Price1,     MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Amount2,      MathOp.SETTO, "0"),
+            };
+            balanceDue.DoMath(_ops69);
             var balanceDueCurrent = balanceDue;
             balanceDueCurrent.SetValue(CustCol.ActivityType,    ActivityType.Balance_Due);
             balanceDueCurrent.SetEntity(CustCol.OtherPeriod,    new AlliantEntity(0));
@@ -3878,18 +4211,26 @@ namespace VelocityProto
             //           Territory=PaymentRecipientUDF.CountryOfTaxResidence,
             //           Price1=0.
             var taxFlags = aboveMin;
-            taxFlags.DoMath(EngineCol.Comment,    MathOp.SETTO, PaymentRecipientUDF.SubjectToWithholdingTaxFlag);
-            taxFlags.DoMath(EngineCol.AltComment, MathOp.SETTO, PaymentRecipientUDF.SubjectToVATFlag);
-            taxFlags.DoMath(CustCol.Territory,    MathOp.SETTO, PaymentRecipientUDF.CountryOfTaxResidence);
-            taxFlags.DoMath(EngineCol.Price1,     MathOp.SETTO, "0");
+            var _ops70 = new MathList
+            {
+                new MathOperation(EngineCol.Comment,    MathOp.SETTO, PaymentRecipientUDF.SubjectToWithholdingTaxFlag),
+                new MathOperation(EngineCol.AltComment, MathOp.SETTO, PaymentRecipientUDF.SubjectToVATFlag),
+                new MathOperation(CustCol.Territory,    MathOp.SETTO, PaymentRecipientUDF.CountryOfTaxResidence),
+                new MathOperation(EngineCol.Price1,     MathOp.SETTO, "0"),
+            };
+            taxFlags.DoMath(_ops70);
 
             // ReadyForWHTax = Comment="Yes"; Price1 = ContractUDF.WithholdingTaxRate.
             var readyForWhTax = taxFlags.GetData(EngineCol.Comment, CompareOp.EQ, "Yes", "SubPmtDueTax.ReadyForWHTax");
             readyForWhTax.DoMath(EngineCol.Price1, MathOp.SETTO, ContractUDF.WithholdingTaxRate);
             // WhTaxAmount = -1 * Price1 * Amount -> Amount.
             var whTaxAmount = readyForWhTax;
-            whTaxAmount.DoMath(BaseCol.Amount, MathOp.TIMES, EngineCol.Price1);
-            whTaxAmount.DoMath(BaseCol.Amount, MathOp.TIMES, "-1");
+            var _ops71 = new MathList
+            {
+                new MathOperation(BaseCol.Amount, MathOp.TIMES, EngineCol.Price1),
+                new MathOperation(BaseCol.Amount, MathOp.TIMES, "-1"),
+            };
+            whTaxAmount.DoMath(_ops71);
             var roundedWhTaxAmount = CommonLib.RoundAmountsTo2DecAndUnitsTo0Dec(whTaxAmount);
             Job.CurrentCalcContext = _ctxSubPaymentDueAndTaxes;
             var whTax = roundedWhTaxAmount;
@@ -3897,8 +4238,12 @@ namespace VelocityProto
 
             // ReadyForVATTax = AltComment="Yes"; Price1 = ContractUDF.ValueAddedTaxRate; Comment cleared.
             var readyForVatTax = taxFlags.GetData(EngineCol.AltComment, CompareOp.EQ, "Yes", "SubPmtDueTax.ReadyForVATTax");
-            readyForVatTax.DoMath(EngineCol.Price1,  MathOp.SETTO, ContractUDF.ValueAddedTaxRate);
-            readyForVatTax.DoMath(EngineCol.Comment, MathOp.SETTO, DS.F_NULL_STRING());
+            var _ops72 = new MathList
+            {
+                new MathOperation(EngineCol.Price1,  MathOp.SETTO, ContractUDF.ValueAddedTaxRate),
+                new MathOperation(EngineCol.Comment, MathOp.SETTO, DS.F_NULL_STRING()),
+            };
+            readyForVatTax.DoMath(_ops72);
             var vatWithNumber = readyForVatTax;
             vatWithNumber.DoMath(EngineCol.Comment, MathOp.SETTO, PaymentRecipientUDF.VATNumber);
 
@@ -3927,8 +4272,12 @@ namespace VelocityProto
             paymentAndTaxes.CombineAndRelease(balanceDueCurrent, paymentDueCurrentOutput, finalPayment, whTax, vatTax);
             paymentAndTaxes.SetValue(CustCol.TransType, TransType.Current);
             // CurrentPaymentAndTaxesOutput: clear Comment + AltComment.
-            paymentAndTaxes.DoMath(EngineCol.Comment,    MathOp.SETTO, DS.F_NULL_STRING());
-            paymentAndTaxes.DoMath(EngineCol.AltComment, MathOp.SETTO, DS.F_NULL_STRING());
+            var _ops73 = new MathList
+            {
+                new MathOperation(EngineCol.Comment,    MathOp.SETTO, DS.F_NULL_STRING()),
+                new MathOperation(EngineCol.AltComment, MathOp.SETTO, DS.F_NULL_STRING()),
+            };
+            paymentAndTaxes.DoMath(_ops73);
             var currentPaymentAndTaxesOutput = paymentAndTaxes;
 
             // ITDPaymentAndTaxesOutput = Combine(Current, PriorPaymentITD), TransType=ITD.
@@ -3997,9 +4346,13 @@ namespace VelocityProto
 
             // SummarizeAP — collapse to AP grain (consumes 'forAp'), then zero non-Amount value cols.
             var summarizeAp = SummarizeForAPEntries(forAp);
-            summarizeAp.DoMath(BaseCol.Amount2, MathOp.SETTO, "0");
-            summarizeAp.DoMath(BaseCol.Units,   MathOp.SETTO, "0");
-            summarizeAp.DoMath(BaseCol.Units2,  MathOp.SETTO, "0");
+            var _ops74 = new MathList
+            {
+                new MathOperation(BaseCol.Amount2, MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units,   MathOp.SETTO, "0"),
+                new MathOperation(BaseCol.Units2,  MathOp.SETTO, "0"),
+            };
+            summarizeAp.DoMath(_ops74);
 
             // RemoveZeros — drop rows where all value cols are 0.
             var nonZeroAp = CommonLib.RemoveZeros(summarizeAp);
@@ -4013,8 +4366,12 @@ namespace VelocityProto
             // Restamp: ActivityType → Payment_Debit, Comment ← ActivityTypeUDF.GLAccount,
             // Division ← ContractUDF.Division.
             payment.SetValue(CustCol.ActivityType, ActivityType.Payment_Debit);
-            payment.DoMath(EngineCol.Comment,    MathOp.SETTO, ActivityTypeUDF.GLAccount);
-            payment.DoMath(CustCol.Division,     MathOp.SETTO, ContractUDF.Division);
+            var _ops75 = new MathList
+            {
+                new MathOperation(EngineCol.Comment,    MathOp.SETTO, ActivityTypeUDF.GLAccount),
+                new MathOperation(CustCol.Division,     MathOp.SETTO, ContractUDF.Division),
+            };
+            payment.DoMath(_ops75);
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubAPEntries");
             return payment;
@@ -4060,8 +4417,12 @@ namespace VelocityProto
             var validDedPercent = setDedPercent.GetData(EngineCol.Rate1, CompareOp.NE, "0", "SubRevDed.ValidDedPercent");
             setDedPercent.Release();
             // Amount = -1 * Rate1 * Amount   (Rate1 holds DeductionPercent)
-            validDedPercent.DoMath(BaseCol.Amount, MathOp.TIMES, EngineCol.Rate1);
-            validDedPercent.DoMath(BaseCol.Amount, MathOp.TIMES, "-1");
+            var _ops76 = new MathList
+            {
+                new MathOperation(BaseCol.Amount, MathOp.TIMES, EngineCol.Rate1),
+                new MathOperation(BaseCol.Amount, MathOp.TIMES, "-1"),
+            };
+            validDedPercent.DoMath(_ops76);
             validDedPercent.SetValue(CustCol.ActivityType, ActivityType.Calculated_Deduction_Amount_Based);
             var dedPercentOutput = validDedPercent;
 
@@ -4072,9 +4433,13 @@ namespace VelocityProto
             var validDedUnits = setDedUnits.GetData(EngineCol.Rate1, CompareOp.NE, "0", "SubRevDed.ValidDedUnits");
             setDedUnits.Release();
             // Amount = -1 * Units * Rate1 into Amount   (Rate1 holds DeductionUnitRate)
-            validDedUnits.DoMath(BaseCol.Amount, MathOp.SETTO, BaseCol.Units);
-            validDedUnits.DoMath(BaseCol.Amount, MathOp.TIMES, EngineCol.Rate1);
-            validDedUnits.DoMath(BaseCol.Amount, MathOp.TIMES, "-1");
+            var _ops77 = new MathList
+            {
+                new MathOperation(BaseCol.Amount, MathOp.SETTO, BaseCol.Units),
+                new MathOperation(BaseCol.Amount, MathOp.TIMES, EngineCol.Rate1),
+                new MathOperation(BaseCol.Amount, MathOp.TIMES, "-1"),
+            };
+            validDedUnits.DoMath(_ops77);
             validDedUnits.SetValue(CustCol.ActivityType, ActivityType.Calculated_Deduction_Unit_Based);
             var dedUnitsOutput = validDedUnits;
 
@@ -4118,8 +4483,12 @@ namespace VelocityProto
             var netSalesOutput = ResultSet.EmptySet();
             netSalesOutput.CombineAndRelease(capPctOrAmountItd, toBeCappedItd, deductionsItd);
             netSalesOutput.SetValue(CustCol.ActivityType, ActivityType.Net_Sales);
-            netSalesOutput.DoMath(EngineCol.Rate2, MathOp.SETTO, "0");
-            netSalesOutput.DoMath(EngineCol.Rate3, MathOp.SETTO, "0");
+            var _ops78 = new MathList
+            {
+                new MathOperation(EngineCol.Rate2, MathOp.SETTO, "0"),
+                new MathOperation(EngineCol.Rate3, MathOp.SETTO, "0"),
+            };
+            netSalesOutput.DoMath(_ops78);
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubNetSales");
             return netSalesOutput;

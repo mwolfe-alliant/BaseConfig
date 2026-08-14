@@ -11,9 +11,9 @@
 // CalcContext column lists are derived from c_calc_context.summarize_by_column_flag
 // — the Reset() arg list is the COMPLEMENT of sum=Y columns (anything NOT in
 // the sum_y set is reset to its zero/empty value before summarization).
-using VelocityProto.Handles;
+using Velocity.Handles;
 
-namespace VelocityProto
+namespace Velocity
 {
     public static class CommonLib
     {
@@ -55,51 +55,49 @@ namespace VelocityProto
 
         // ── C_ROUND_AMOUNTS_TO_2_DEC_AND_UNITS_TO_0_DEC  (calc_sid=1547) ─────
         //
-        // Reset columns (NOT in sum=Y set):
-        //   Period5/Period4/Period3/Period2 (none — only Period (13) and ActualPeriod (14) preserved
-        //   from period family).  Per c_calc_context inspection:
-        //   sum=Y on:  UDKey1-8, UDKey12-18, Rate, Period, ActualPeriod, RetailPrice (Price_point),
-        //              AltPricePoint, Deal, Amount, Units, OtherPeriod, Rate2, Rate3, FromDate, ToDate,
-        //              Comment1, Comment2, Contact1-4, Amount2, Units2.
-        //   Round on:  Amount/Amount2 → 2 dp ; Units/Units2 → 0 dp.
-        //   Reset:     UDKey9-11, UDKey19-20, Contract.
-        //
-        // For now Reset is conservative — preserves what BC1's c_calc_context says
-        // and resets everything else.  Caller pattern: set CurrentCalcContext, then
-        // Summarize() the input.  The helper consumes the input -- on the new-set
-        // return path it Releases the original; on the same-set return it does not.
-        // (Mid-pipeline summarize -- NOT Output(), which is end-of-entry-point only.)
+        // DB c_calc_context: all user-configurable columns are summarize_by_column_flag='Y'
+        // (no Reset authorized).  Round flags set: Amount1→2 dp, Units1→0 dp,
+        // Amount2→2 dp, Units2→0 dp.
+        // Contract is reset via engine built-in (not user-configurable, no ce row).
         public static ResultSet RoundAmountsTo2DecAndUnitsTo0Dec(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxRoundAmountsTo2DecAndUnitsTo0Dec == null)
                 _ctxRoundAmountsTo2DecAndUnitsTo0Dec = new CalcContext("C_ROUND_AMOUNTS_TO_2_DEC_AND_UNITS_TO_0_DEC")
-                    .Reset(EngineCol.UDKey9, EngineCol.UDKey10, EngineCol.UDKey11,
-                           EngineCol.UDKey19, EngineCol.UDKey20,
-                           EngineCol.Contract);
+                    .Reset(EngineCol.Contract)
+                    .RoundAmount(EngineCol.Amount1, 2)
+                    .RoundAmount(EngineCol.Units1,  0)
+                    .RoundAmount(EngineCol.Amount2, 2)
+                    .RoundAmount(EngineCol.Units2,  0);
             Job.CurrentCalcContext = _ctxRoundAmountsTo2DecAndUnitsTo0Dec;
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── C_ROUND_ALL_TO_2_DEC  (calc_sid=1666) ────────────────────────────
         //
-        // Same column set as 1547 (sum=Y on the same wide set), but rounds Amount,
-        // Amount2, Units, Units2 ALL to 2 dp (vs 1547's 2/0/2/0).
-        // The c_calc_context round flags would parameterize this, but Velocity's
-        // CalcContext doesn't expose per-column rounding yet — the rounding happens
-        // in the engine when results are written.  Same Reset() shape as 1547.
+        // DB c_calc_context: all user-configurable columns are summarize_by_column_flag='Y'.
+        // Round flags set: Amount1, Units1, Amount2, Units2 all → 2 dp.
+        // Contract is reset via engine built-in.
         public static ResultSet RoundAllTo2Dec(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxRoundAllTo2Dec == null)
                 _ctxRoundAllTo2Dec = new CalcContext("C_ROUND_ALL_TO_2_DEC")
-                    .Reset(EngineCol.UDKey9, EngineCol.UDKey10, EngineCol.UDKey11,
-                           EngineCol.UDKey19, EngineCol.UDKey20,
-                           EngineCol.Contract);
+                    .Reset(EngineCol.Contract)
+                    .RoundAmount(EngineCol.Amount1, 2)
+                    .RoundAmount(EngineCol.Units1,  2)
+                    .RoundAmount(EngineCol.Amount2, 2)
+                    .RoundAmount(EngineCol.Units2,  2);
             Job.CurrentCalcContext = _ctxRoundAllTo2Dec;
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── C_SUMMARIZE_TO_OTHERPERIOD_TIER  (calc_sid=1554) ─────────────────
@@ -112,6 +110,8 @@ namespace VelocityProto
         //           Dates, Comments, Contacts).
         public static ResultSet SummarizeToOtherPeriodTier(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxSummarizeToOtherPeriodTier == null)
                 _ctxSummarizeToOtherPeriodTier = new CalcContext("C_SUMMARIZE_TO_OTHERPERIOD_TIER")
                     .Reset(EngineCol.UDKey1, EngineCol.UDKey2, EngineCol.UDKey3, EngineCol.UDKey4,
@@ -129,6 +129,7 @@ namespace VelocityProto
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── C_SUMMARIZE_TO_RECOUPMENT_GROUP  (calc_sid=1562) ─────────────────
@@ -138,6 +139,8 @@ namespace VelocityProto
         //           UDKey15 (35), Amount2 (51), Units2 (52)
         public static ResultSet SummarizeToRecoupmentGroup(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxSummarizeToRecoupmentGroup == null)
                 _ctxSummarizeToRecoupmentGroup = new CalcContext("C_SUMMARIZE_TO_RECOUPMENT_GROUP")
                     .Reset(EngineCol.UDKey1, EngineCol.UDKey2, EngineCol.UDKey3, EngineCol.UDKey4,
@@ -156,6 +159,9 @@ namespace VelocityProto
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
     }
 }
+
+

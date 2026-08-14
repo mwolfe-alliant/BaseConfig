@@ -33,9 +33,9 @@
 //
 // CalcContext Reset() column lists are the COMPLEMENT of sum=Y in c_calc_context.
 using System;
-using VelocityProto.Handles;
+using Velocity.Handles;
 
-namespace VelocityProto
+namespace Velocity
 {
     public static class RoyaltyLib
     {
@@ -78,20 +78,18 @@ namespace VelocityProto
         private static CalcContext _ctxSubGetImportAdjsPriorITD;
         private static CalcContext _ctxSubGuaranteeInstallments;
 
-        // Shared Reset shape for the 6 Subs whose c_calc_context resets the same cols.
-        private static CalcContext NewSubCtxStandard(string name) =>
-            new CalcContext(name)
-                .Reset(EngineCol.UDKey13, EngineCol.UDKey15, EngineCol.UDKey16,
-                       EngineCol.ToDate,  EngineCol.Contact3, EngineCol.Contact4);
-
-        // Empty-Reset shape for SubGLEntries (1569) and SubAPEntries (1571) -- they
-        // already arrive at output grain so no rollup happens.
+        // Sub calcs have a pure no-op c_calc_context (all summarize_by_column_flag='Y').
+        // Both factories return an empty CalcContext; the DB does not authorize any Reset
+        // for these calcs, so nothing gets erased from the group-by key.
+        private static CalcContext NewSubCtxStandard(string name) => new CalcContext(name);
         private static CalcContext NewSubCtxFullKey(string name) => new CalcContext(name);
 
         // ── 1546 C_SUMMARIZE_TO_ACTUAL_PERIOD_BUNDLE ─────────────────────────
         // sum=Y: UDKey8 (Bundle), Period, ActualPeriod, Deal, Amount, Units, Amount2, Units2
         public static ResultSet SummarizeToActualPeriodBundle(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxSummarizeToActualPeriodBundle == null)
                 _ctxSummarizeToActualPeriodBundle = new CalcContext("C_SUMMARIZE_TO_ACTUAL_PERIOD_BUNDLE")
                     .Reset(EngineCol.UDKey1, EngineCol.UDKey2, EngineCol.UDKey3, EngineCol.UDKey4,
@@ -109,6 +107,7 @@ namespace VelocityProto
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1557 C_SUMMARIZE_FOR_WINDOW_TIERING ──────────────────────────────
@@ -116,6 +115,8 @@ namespace VelocityProto
         //        Amount, Units, Amount2, Units2
         public static ResultSet SummarizeForWindowTiering(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxSummarizeForWindowTiering == null)
                 _ctxSummarizeForWindowTiering = new CalcContext("C_SUMMARIZE_FOR_WINDOW_TIERING")
                     .Reset(EngineCol.UDKey2, EngineCol.UDKey3, EngineCol.UDKey8,
@@ -132,12 +133,15 @@ namespace VelocityProto
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1567 C_SUMMARIZE_FOR_ROYALTIES_DUE ───────────────────────────────
         // sum=Y: UDKey2, UDKey3, Period, ActualPeriod, Deal, Amount, Units, UDKey15, UDKey18, Amount2, Units2
         public static ResultSet SummarizeForRoyaltiesDue(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxSummarizeForRoyaltiesDue == null)
                 _ctxSummarizeForRoyaltiesDue = new CalcContext("C_SUMMARIZE_FOR_ROYALTIES_DUE")
                     .Reset(EngineCol.UDKey1, EngineCol.UDKey4, EngineCol.UDKey5, EngineCol.UDKey6,
@@ -154,6 +158,7 @@ namespace VelocityProto
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1570 C_SUMMARIZE_FOR_GL_ENTRIES ──────────────────────────────────
@@ -161,6 +166,8 @@ namespace VelocityProto
         //        Amount, Units, UDKey18, Amount2, Units2
         public static ResultSet SummarizeForGLEntries(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxSummarizeForGLEntries == null)
                 _ctxSummarizeForGLEntries = new CalcContext("C_SUMMARIZE_FOR_GL_ENTRIES")
                     .Reset(EngineCol.UDKey1, EngineCol.UDKey8,
@@ -177,6 +184,7 @@ namespace VelocityProto
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1572 C_SUMMARIZE_FOR_AP_ENTRIES ──────────────────────────────────
@@ -184,11 +192,13 @@ namespace VelocityProto
         //        Contact1, Contact2, Amount2, Units2
         public static ResultSet SummarizeForAPEntries(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxSummarizeForAPEntries == null)
                 _ctxSummarizeForAPEntries = new CalcContext("C_SUMMARIZE_FOR_AP_ENTRIES")
                     .Reset(EngineCol.UDKey1, EngineCol.UDKey4, EngineCol.UDKey5, EngineCol.UDKey6,
                            EngineCol.UDKey7, EngineCol.UDKey8, EngineCol.UDKey9, EngineCol.UDKey10,
-                           EngineCol.UDKey11, EngineCol.UDKey12, EngineCol.UDKey13, EngineCol.UDKey14,
+                           EngineCol.UDKey11, EngineCol.UDKey12, EngineCol.UDKey14,
                            EngineCol.UDKey16, EngineCol.UDKey17, EngineCol.UDKey19, EngineCol.UDKey20,
                            EngineCol.Contract, EngineCol.Period3,
                            EngineCol.Rate1, EngineCol.Rate2, EngineCol.Rate3,
@@ -200,6 +210,7 @@ namespace VelocityProto
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1574 C_SUMMARIZE_FOR_STATEMENT_DISPLAY ───────────────────────────
@@ -207,6 +218,8 @@ namespace VelocityProto
         //        UDKey16, Amount2, Units2
         public static ResultSet SummarizeForStatementDisplay(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxSummarizeForStatementDisplay == null)
                 _ctxSummarizeForStatementDisplay = new CalcContext("C_SUMMARIZE_FOR_STATEMENT_DISPLAY")
                     .Reset(EngineCol.UDKey9, EngineCol.UDKey10, EngineCol.UDKey11, EngineCol.UDKey12,
@@ -222,12 +235,15 @@ namespace VelocityProto
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1591 C_SUMMARIZE_FOR_GUARANTEE_INSTALLMENT ───────────────────────
         // sum=Y: Period, ActualPeriod, Deal, Amount, Units, UDKey15, UDKey18, Amount2, Units2
         public static ResultSet SummarizeForGuaranteeInstallment(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxSummarizeForGuaranteeInstallment == null)
                 _ctxSummarizeForGuaranteeInstallment = new CalcContext("C_SUMMARIZE_FOR_GUARANTEE_INSTALLMENT")
                     .Reset(EngineCol.UDKey1, EngineCol.UDKey2, EngineCol.UDKey3, EngineCol.UDKey4,
@@ -245,6 +261,7 @@ namespace VelocityProto
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1623 C_SUMMARIZE_TO_ACTUAL_PERIOD_RATE3_PRICE2 ───────────────────
@@ -252,6 +269,8 @@ namespace VelocityProto
         //        Rate3 (user_3_rate), Amount2, Units2
         public static ResultSet SummarizeToActualPeriodRate3Price2(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxSummarizeToActualPeriodRate3Price2 == null)
                 _ctxSummarizeToActualPeriodRate3Price2 = new CalcContext("C_SUMMARIZE_TO_ACTUAL_PERIOD_RATE3_PRICE2")
                     .Reset(EngineCol.UDKey1, EngineCol.UDKey2, EngineCol.UDKey3, EngineCol.UDKey4,
@@ -269,6 +288,7 @@ namespace VelocityProto
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1655 C_SUMMARIZE_FOR_BONUS_TIERING ───────────────────────────────
@@ -276,6 +296,8 @@ namespace VelocityProto
         //        Period, ActualPeriod, Deal, Amount, Units, UDKey12, Amount2, Units2
         public static ResultSet SummarizeForBonusTiering(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxSummarizeForBonusTiering == null)
                 _ctxSummarizeForBonusTiering = new CalcContext("C_SUMMARIZE_FOR_BONUS_TIERING")
                     .Reset(EngineCol.UDKey2, EngineCol.UDKey3, EngineCol.UDKey8,
@@ -291,6 +313,7 @@ namespace VelocityProto
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1558 C_ROY_SUB_ROYALTIES_EARNED ──────────────────────────────────
@@ -698,6 +721,8 @@ namespace VelocityProto
             ResultSet adjustmentsItd,        // INPUTSET3
             ResultSet priorPeriodItd)        // INPUTSET4
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             _ctxSubGuarantees = _ctxSubGuarantees ?? NewSubCtxStandard("C_ROY_SUB_GUARANTEES");
             Job.CurrentCalcContext = _ctxSubGuarantees;
             LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  SubGuarantees");
@@ -811,6 +836,7 @@ namespace VelocityProto
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubGuarantees");
             return guaranteesOutput;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1566 C_ROY_SUB_ROYALTIES_DUE ─────────────────────────────────────
@@ -923,6 +949,8 @@ namespace VelocityProto
         public static ResultSet SubStatementDisplay(
             ResultSet allResultItd)             // INPUTSET1
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             _ctxSubStatementDisplay = _ctxSubStatementDisplay ?? NewSubCtxStandard("C_ROY_SUB_STATEMENT_DISPLAY");
             Job.CurrentCalcContext = _ctxSubStatementDisplay;
             LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  SubStatementDisplay");
@@ -1018,6 +1046,7 @@ namespace VelocityProto
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubStatementDisplay");
             return statementOutput;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1569 C_ROY_SUB_GL_ENTRIES ────────────────────────────────────────
@@ -1041,6 +1070,8 @@ namespace VelocityProto
         public static ResultSet SubGLEntries(
             ResultSet allOutput)                // INPUTSET1
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             _ctxSubGLEntries = _ctxSubGLEntries ?? NewSubCtxFullKey("C_ROY_SUB_GL_ENTRIES");
             Job.CurrentCalcContext = _ctxSubGLEntries;
             LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  SubGLEntries");
@@ -1111,6 +1142,7 @@ namespace VelocityProto
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubGLEntries");
             return final;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1556 C_ROY_SUB_TIERING ───────────────────────────────────────────
@@ -1144,6 +1176,8 @@ namespace VelocityProto
             ResultSet priorPeriodItd,             // INPUTSET2
             ResultSet windowStartPeriodItd)       // INPUTSET3
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             _ctxSubTiering = _ctxSubTiering ?? NewSubCtxStandard("C_ROY_SUB_TIERING");
             Job.CurrentCalcContext = _ctxSubTiering;
             LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  SubTiering");
@@ -1480,6 +1514,7 @@ namespace VelocityProto
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubTiering");
             return outputResult;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1662 C_ROY_SUB_BONUS_PAYMENT ─────────────────────────────────────
@@ -1933,8 +1968,10 @@ namespace VelocityProto
             // p_ds_get_calc_results: retrieve approved ITD trx from contributing Deals at
             // calc period.  Builds a one-row request and calls the DSP.
             var dspGetResultsInput = ResultSet.ZeroSet();
+            //var dspGetResultsInput = ZeroSetWithComments("Udkey3", null);
             dspGetResultsInput.SetValue(CustCol.OtherPeriod, Job.CurrentCalcPeriod);
-            dspGetResultsInput.DoMath(EngineCol.Comment,    MathOp.SETTO, "Udkey3");
+            // This gets set to value of Udkey3 (zero) rather than literal string
+            //dspGetResultsInput.DoMath(EngineCol.Comment,    MathOp.SETTO, "Udkey3");
             dspGetResultsInput.SetValue(CustCol.ActualPeriod, new AlliantEntity(0)); // unspecified - "all"
             dspGetResultsInput.DoMath(EngineCol.AltComment, MathOp.SETTO, "Complete, Approved");
             dspGetResultsInput.DoMath(EngineCol.Price1,     MathOp.SETTO, "1");   // ContractID in Comment1
@@ -1944,7 +1981,7 @@ namespace VelocityProto
             dspItdTransType.SetValue(CustCol.TransType, TransType.ITD);
 
             //var allocationResult = DS.ExecuteDSP("p_ds_get_calc_results",
-            //    dspGetResultsInput, dealsToRetrieve, dspItdTransType);
+            //dspGetResultsInput, dealsToRetrieve, dspItdTransType);
             var allocationResult = ResultSet.EmptySet();
             dspGetResultsInput.Release();
             dspItdTransType.Release();
@@ -2102,6 +2139,8 @@ namespace VelocityProto
             ResultSet allAdjustmentsItd,     // INPUTSET3
             ResultSet priorPeriodItd)        // INPUTSET4
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             _ctxSubGuaranteeInstallments = _ctxSubGuaranteeInstallments ?? NewSubCtxStandard("C_ROY_SUB_GUARANTEE_INSTALLMENTS");
             Job.CurrentCalcContext = _ctxSubGuaranteeInstallments;
             LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  SubGuaranteeInstallments");
@@ -2759,6 +2798,7 @@ namespace VelocityProto
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubGuaranteeInstallments");
             return output;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // Helper for SubGuaranteeInstallments first-iter projected guar template.
@@ -3062,6 +3102,8 @@ namespace VelocityProto
             ResultSet priorPeriodItd,             // INPUTSET4
             ResultSet priorStmtItd)               // INPUTSET5
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             _ctxSubAdvances = _ctxSubAdvances ?? NewSubCtxStandard("C_ROY_SUB_ADVANCES");
             Job.CurrentCalcContext = _ctxSubAdvances;
             LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  SubAdvances");
@@ -3297,6 +3339,7 @@ namespace VelocityProto
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubAdvances");
             return advancesOutput;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1577 C_ROY_SUB_ADVANCES_WITH_CP ──────────────────────────────────
@@ -3322,6 +3365,8 @@ namespace VelocityProto
             ResultSet priorPeriodItd,             // INPUTSET4
             ResultSet priorStmtItd)               // INPUTSET5
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             _ctxSubAdvancesWithCP = _ctxSubAdvancesWithCP ?? NewSubCtxStandard("C_ROY_SUB_ADVANCES_WITH_CP");
             Job.CurrentCalcContext = _ctxSubAdvancesWithCP;
             LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  SubAdvancesWithCP (dormant)");
@@ -3366,6 +3411,7 @@ namespace VelocityProto
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubAdvancesWithCP (dormant)");
             return ResultSet.EmptySet();
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1553 C_ROY_SUB_DEDUCTION_CAP ─────────────────────────────────────
@@ -3496,10 +3542,13 @@ namespace VelocityProto
             // CapPctOnContract: ZeroSet with Comment1="DeductionCapPercent", AltComment="Contract"
             var capPctOnContract = ResultSet.ZeroSet();
             capPctOnContract.SetValue(CustCol.Comment1, "DeductionCapPercent");
-            capPctOnContract.DoMath(EngineCol.AltComment, MathOp.SETTO, "Contract");
+            // Actually uses the value of Contract from the ZeroSet so ends up as "0"
+            capPctOnContract.DoMath(EngineCol.AltComment, MathOp.SETTO, "Contract".ToLower());
+
             // TierToRetrieve: ZeroSet with Comment1="UDKey14"
             var tierToRetrieve = ResultSet.ZeroSet();
-            tierToRetrieve.SetValue(CustCol.Comment1, "UDKey14");
+            // Actually uses the value of UDKey14 from the ZeroSet so ends up as "0"
+            tierToRetrieve.SetValue(CustCol.Comment1, "UDKey14".ToLower());
 
             var tierPctDetails = DS.ExecuteDSP("p_ds_get_lookup_column_values", capPctOnContract, tierToRetrieve);
             capPctOnContract.Release();
@@ -3670,6 +3719,8 @@ namespace VelocityProto
             ResultSet priorPeriodItd,               // INPUTSET2
             ResultSet allAdjustmentsItd)            // INPUTSET3
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             _ctxSubPaymentDueAndTaxes = _ctxSubPaymentDueAndTaxes ?? NewSubCtxStandard("C_ROY_SUB_PAYMENT_DUE_AND_TAXES");
             Job.CurrentCalcContext = _ctxSubPaymentDueAndTaxes;
             LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  SubPaymentDueAndTaxes");
@@ -3976,6 +4027,7 @@ namespace VelocityProto
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubPaymentDueAndTaxes");
             return paymentAndTaxesOutput;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1571 C_ROY_SUB_AP_ENTRIES ────────────────────────────────────────
@@ -4004,6 +4056,8 @@ namespace VelocityProto
         public static ResultSet SubAPEntries(
             ResultSet allOutput)                // INPUTSET1
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             _ctxSubAPEntries = _ctxSubAPEntries ?? NewSubCtxFullKey("C_ROY_SUB_AP_ENTRIES");
             Job.CurrentCalcContext = _ctxSubAPEntries;
             LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  SubAPEntries");
@@ -4037,6 +4091,7 @@ namespace VelocityProto
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubAPEntries");
             return payment;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1560 C_ROY_SUB_REVENUE_DEDUCTION ─────────────────────────────────
@@ -4065,6 +4120,8 @@ namespace VelocityProto
         public static ResultSet SubRevenueDeduction(
             ResultSet importedActivityItd)       // INPUTSET1
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             _ctxSubRevenueDeduction = _ctxSubRevenueDeduction ?? NewSubCtxStandard("C_ROY_SUB_REVENUE_DEDUCTION");
             Job.CurrentCalcContext = _ctxSubRevenueDeduction;
             LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  SubRevenueDeduction");
@@ -4110,6 +4167,7 @@ namespace VelocityProto
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubRevenueDeduction");
             return revenueDeductionsItd;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1555 C_ROY_SUB_NET_SALES ─────────────────────────────────────────
@@ -4130,6 +4188,8 @@ namespace VelocityProto
             ResultSet toBeCappedItd,             // INPUTSET2
             ResultSet deductionsItd)             // INPUTSET3
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             _ctxSubNetSales = _ctxSubNetSales ?? NewSubCtxStandard("C_ROY_SUB_NET_SALES");
             Job.CurrentCalcContext = _ctxSubNetSales;
             LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  SubNetSales");
@@ -4142,12 +4202,15 @@ namespace VelocityProto
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  SubNetSales");
             return netSalesOutput;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
 
         // ── 1657 C_SUMMARIZE_TO_TIER ─────────────────────────────────────────
         // sum=Y: Period, Deal, Amount, Units, UDKey14 (Tier slot), Amount2, Units2
         public static ResultSet SummarizeToTier(ResultSet inputSet1)
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             if (_ctxSummarizeToTier == null)
                 _ctxSummarizeToTier = new CalcContext("C_SUMMARIZE_TO_TIER")
                     .Reset(EngineCol.UDKey1, EngineCol.UDKey2, EngineCol.UDKey3, EngineCol.UDKey4,
@@ -4165,6 +4228,45 @@ namespace VelocityProto
             var result = inputSet1.Summarize();
             if (!ReferenceEquals(result, inputSet1)) inputSet1.Release();
             return result;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
+        }
+
+        public static ResultSet ZeroSetWithComments(string comment1, string comment2)
+        {
+            var newSet = new ResultSet();
+
+            if (newSet == null)
+                return (null);
+
+            var newRow = new CalcResultRow();
+
+            if (newRow == null)
+            {
+                return (null);
+            }
+
+            newRow.Contract_sid = Job.currentContract?.sid ?? 0;
+            newRow.Deal_sid = Job.currentDeal?.sid ?? 0;
+            newRow.Period_sid = Job.CurrentCalcPeriod?.sid ?? 0;
+            newRow.Calc_sid = Job.CurrentEntryTemplateSid;
+
+            if (comment1 != null)
+            {
+                newRow.User_comment = comment1;
+            }
+
+            if (comment2 != null)
+            {
+                newRow.Alt_user_comment = comment2;
+            }
+
+            newSet.AddCalcResultRow(newRow);
+            newSet.IsSummarized = false;
+            newSet.SummarizedByContext = null;
+            return (newSet);
+
         }
     }
 }
+
+

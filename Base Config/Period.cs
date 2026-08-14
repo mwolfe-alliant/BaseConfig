@@ -1,10 +1,10 @@
 // AUTO-GENERATED -- do not edit by hand.
-// Re-run Generate Handles in Alliant UI to regenerate from the current database state.
+// Re-run Generate Handles in Velocity Studio to regenerate from the current database state.
 // Source:  x_period  (472 items)
 
-using VelocityProto;
+using Velocity;
 
-namespace VelocityProto.Handles
+namespace Velocity.Handles
 {
     // Period item handles.
     public static class Period

@@ -11,9 +11,9 @@
 //   - No GLEntries (that's accrual-only).
 using System;
 using System.Reflection;
-using VelocityProto.Handles;
+using Velocity.Handles;
 
-namespace VelocityProto
+namespace Velocity
 {
     public class RoyaltyStatement
     {
@@ -31,6 +31,8 @@ namespace VelocityProto
         [CalcTemplateGroup("Royalty - Statement")]
         public ResultSet Main()
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             _ctxRoyaltyStatement = _ctxRoyaltyStatement ?? new CalcContext("C_ROY_MAIN_ROYALTY_STATEMENT");
             Job.CurrentCalcContext = _ctxRoyaltyStatement;
             LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  RoyaltyStatement");
@@ -223,6 +225,8 @@ namespace VelocityProto
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  RoyaltyStatement");
             return output;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
     }
 }
+

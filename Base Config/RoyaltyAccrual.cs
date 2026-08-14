@@ -36,9 +36,9 @@
 //   Output             = Combine(NonZeros, WindowPeriod, GLOutput)
 using System;
 using System.Reflection;
-using VelocityProto.Handles;
+using Velocity.Handles;
 
-namespace VelocityProto
+namespace Velocity
 {
     public class RoyaltyAccrual
     {
@@ -56,6 +56,8 @@ namespace VelocityProto
         [CalcTemplateGroup("Royalty - Accrual")]
         public ResultSet Main()
         {
+            var _priorCalcCtx = Job.CurrentCalcContext;
+            try {
             _ctxRoyaltyAccrual = _ctxRoyaltyAccrual ?? new CalcContext("C_ROY_MAIN_ROYALTY_ACCRUAL");
             Job.CurrentCalcContext = _ctxRoyaltyAccrual;
             LogMsg.Debug(DebugCategory.ContractModelProgress, 2, "Start:  RoyaltyAccrual");
@@ -224,6 +226,8 @@ namespace VelocityProto
 
             LogMsg.Debug(DebugCategory.ContractModelProgress, 1, "End:  RoyaltyAccrual");
             return output;
+            } finally { Job.CurrentCalcContext = _priorCalcCtx; }
         }
     }
 }
+

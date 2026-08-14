@@ -6,9 +6,9 @@
 // entry point can reuse it (DealScript c:1686 Accrual = `Output = #<c:1685>#`).
 using System;
 using System.Reflection;
-using VelocityProto.Handles;
+using Velocity.Handles;
 
-namespace VelocityProto
+namespace Velocity
 {
     public class ParticipationsStatement
     {

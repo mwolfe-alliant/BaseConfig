@@ -1,9 +1,9 @@
 // AUTO-GENERATED -- do not edit by hand.
-// Re-run Generate Handles in Alliant UI to regenerate from the current database state.
+// Re-run Generate Handles in Velocity Studio to regenerate from the current database state.
 
-using VelocityProto;
+using Velocity;
 
-namespace VelocityProto.Handles
+namespace Velocity.Handles
 {
     // Customer-tier column handle mapping.
     // Usage:  new MathOperation(CustCol.Account, MathOp.SETTO, Account.NegEarnBal)
@@ -23,7 +23,6 @@ namespace VelocityProto.Handles
         public static readonly UDKey11Col Customer = EngineCol.UDKey11;
         public static readonly UDKey12Col Provider = EngineCol.UDKey12;
         public static readonly UDKey13Col PaymentMethodApprovalType = EngineCol.UDKey13;
-        public static readonly UDKey14Col Tier = EngineCol.UDKey14;
         public static readonly UDKey15Col RecoupmentGroup = EngineCol.UDKey15;
         public static readonly UDKey16Col RoyaltyMethod = EngineCol.UDKey16;
         public static readonly UDKey17Col SourceCurrency = EngineCol.UDKey17;
