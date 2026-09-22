@@ -1826,7 +1826,7 @@ namespace Velocity
         // Phase F. Allowable + currency conversion.
         //          ReadyForAllowable = (ImportedITD ∪ ValidAllocationResult), AltComment = ContractUDF.AllowableTransactions.
         //          AllowedTrxs = filter AltComment="Yes", AltComment <- F_NULL_STRING(), Rate2=-1.
-        //          WithExchangeRate = stamp UDKey17 (SourceCurrency) <- ContractUDF.DealCurrency,
+        //          WithExchangeRate = stamp UDKey18 (CalculationCurrency) <- ContractUDF.DealCurrency,
         //                              Rate2 <- SourceCurrencyUDF.ExchangeRate.
         //          InvalidExchangeRate = filter Rate2=-1 (rate-not-found rows).
         //                              p_ds_udkey_to_text + p_ds_set_calc_error_in_run.
@@ -2039,11 +2039,11 @@ namespace Velocity
             };
             allowedTrxs.DoMath(_ops19);
 
-            // SourceCurrency <- ContractUDF.DealCurrency, Rate2 <- SourceCurrencyUDF.ExchangeRate.
+            // CalculationCurrency <- ContractUDF.DealCurrency, Rate2 <- SourceCurrencyUDF.ExchangeRate.
             var withExchangeRate = allowedTrxs;
             var _ops20 = new MathList
             {
-                new MathOperation(CustCol.SourceCurrency, MathOp.SETTO, ContractUDF.DealCurrency),
+                new MathOperation(CustCol.CalculationCurrency, MathOp.SETTO, ContractUDF.DealCurrency),
                 new MathOperation(EngineCol.Rate2,        MathOp.SETTO, SourceCurrencyUDF.ExchangeRate),
             };
             withExchangeRate.DoMath(_ops20);
@@ -4518,3 +4518,4 @@ namespace Velocity
         }
     }
 }
+

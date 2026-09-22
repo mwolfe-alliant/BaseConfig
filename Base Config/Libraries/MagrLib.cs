@@ -2004,7 +2004,7 @@ namespace Velocity
         //   Phase C. PreviousITD = CalcResult Prior_ITD list at calc-period-previous.
         //   Phase D. PreWindowingITD = filter PreviousITD to [Inception..WindowStart-1].
         //   Phase E. Adjustments = MAGR_Adjustment list ITD; stamp TransType=ITD.
-        //   Phase F. Currency conversion (UDKey17 -> Calc currency via SourceCurrencyUDF.ExchangeRate).
+        //   Phase F. Currency conversion (UDKey18 CalculationCurrency <- MAGR_DealCurrency; Rate2 <- SourceCurrencyUDF.ExchangeRate).
         //   Phase G. Allowable Gross Receipts: split DistExp+COP rows from rest, multiply
         //              non-DistExp+COP by ContractUDF.MAGR_AllowableGrossReceiptsPercent.
         //   Phase H. Channel mapping (back-fill Channel via ContractUDF.MAGR_ChannelMapping).
@@ -2086,11 +2086,11 @@ namespace Velocity
             });
             adjustments.SetValue(CustCol.TransType, TransType.ITD);
 
-            // Phase F: Currency conversion via SourceCurrency UDF.
+            // Phase F: Currency conversion: stamp UDKey18 (CalculationCurrency) <- MAGR_DealCurrency; Rate2 lookup via SourceCurrencyUDF.
             var withExchangeRate = importedItd;
             var _ops39 = new MathList
             {
-                new MathOperation(CustCol.SourceCurrency, MathOp.SETTO, ContractUDF.MAGR_DealCurrency),
+                new MathOperation(CustCol.CalculationCurrency, MathOp.SETTO, ContractUDF.MAGR_DealCurrency),
                 new MathOperation(EngineCol.Rate2,        MathOp.SETTO, SourceCurrencyUDF.ExchangeRate),
             };
             withExchangeRate.DoMath(_ops39);
